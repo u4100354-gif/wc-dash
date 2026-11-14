@@ -109,7 +109,7 @@ function createWorld(canvas) {
    const hipY=mix(.86-tuck*.52,seatedHip/modelScale,sit);
    const kneeY=mix(mix(knee,s===1?.27:.36,tuck),seatedHip/modelScale+.03,sit);
    const kneeZ=mix(mix(step*.15,s===1?.47:.30,tuck),.63,sit);
-   const ankleY=mix(.18+Math.max(0,-step)*.13*(1-tuck),.46,sit);
+   const ankleY=mix(.18+Math.max(0,-step)*.13*(1-tuck),.30-.125*settle,sit);
    const ankleZ=mix(mix(step*.32,s===1?.93:-.11,tuck),.73,sit);
    legPart(hipY,0,kneeY,kneeZ,.28,'324356');legPart(kneeY,kneeZ,ankleY,ankleZ,.25,'40576a');
    part(s*(.20+.08*sit),ankleY-.052,ankleZ+.08,.33,.20,.46,'bd744b',-.10*tuck,true);
@@ -219,7 +219,7 @@ function createWorld(canvas) {
  }
  function powerModel(it,z,t){
   const y=1.13+.11*Math.sin(3*t+it.z),a=it.a,turn=.30*Math.sin(2*t);
-  if(it.type==='double'){round(a,y,z,.70,.17,.70,'edb54f',0,Math.PI/2);box(a,y,z-.1,.10,.44,.06,'fff1a6',0,0,.7);box(a,y,z-.1,.10,.44,.06,'fff1a6',0,0,-.7)}else if(it.type==='magnet'){
+  if(it.type==='boots'){for(const side of [-1,1]){const bx=a+side*.20;box(bx,y,z,.30,.34,.31,'3887bf',turn);box(bx,y-.15,z-.09,.34,.19,.55,'479ccd',turn);box(bx,y-.25,z-.09,.35,.06,.56,'ffdb73',turn)}}else if(it.type==='magnet'){
    for(const side of [-1,1]){box(a+side*.23,y,z,.18,.57,.19,'dc6057',turn);box(a+side*.23,y+.28,z,.18,.16,.19,'f9eed1',turn)}
    box(a,y-.26,z,.61,.17,.19,'db6559',turn)
   }else{
@@ -229,7 +229,7 @@ function createWorld(canvas) {
  }
  function world(d,menu){
   const start=Math.floor((d-12)/5),end=Math.floor((d+66)/5);
-  for(let i=start;i<=end;i++){const z=i*5-d,zone=marathon()?Math.abs(Math.floor(i/32))%3:Math.min(2,Math.max(0,Math.floor(i*5/(length/3))));
+  for(let i=start;i<=end;i++){const z=i*5-d,zone=marathon()?biomeAt(i*5):Math.min(2,Math.max(0,Math.floor(i*5/(length/3))));
    const covered=(i>=0&&i<3)||((i%26+26)%26<3);
    const ceramic=['7aada4','88b5a6','91b587'][zone],wall=['efe6c9','e7e9d9','ebe4c8'][zone];
    for(let l=-1;l<=1;l++)box(l*2.2,-.13,z,2.186,.25,4.98,(i+l)%2?'c2c9b7':'cbd1bf');
@@ -252,6 +252,14 @@ function createWorld(canvas) {
    if(i%8===4)bench(1,z);
    if(i%(zone===2?2:5)===1)garden(3.91,z);
    if(i%16===6)cat(-3.7,z,clock);
+   if(marathon()&&zone===0){
+    if(i%8===2){round(-6.2,.25,z,2.5,.46,2.5,'d9d6bf');round(-6.2,.50,z,2.14,.08,2.14,'73cece');round(-6.2,.87,z,.16,.74,.16,'a7e3dc');round(-6.2,1.29+.07*Math.sin(clock*3),z,.28,.19,.28,'d8f6ef')}
+    if(i%8===5||i%8===6){box(0,.016,z,7,.045,4.98,'bb9361');for(let plank=-2;plank<=2;plank++)box(0,.041,z+plank,7,.016,.042,'956f4f');for(const side of [-1,1]){box(side*9,-.004,z,8.8,.12,4.99,'72bab8');box(side*3.6,.66,z,.12,.14,5.02,'a57d52');box(side*3.6,.35,z-2.3,.16,.74,.18,'98764f')}}
+   }
+   if(marathon()&&zone===2){
+    box(-5.8,.22,z,3,.42,5.0,'a3b7b1');box(-4.38,.45,z,.19,.05,4.95,'efc361');
+    if(i%7===0){box(-3.9,1.83,z,.14,3.65,.15,'456b66');round(-3.9,3.52,z,.97,.15,.97,'2f5350',0,Math.PI/2);round(-3.9,3.52,z-.09,.82,.03,.82,'f5e6bd',0,Math.PI/2);box(-3.98,3.58,z-.12,.21,.057,.03,'35534c',0,0,.55);box(-3.9,3.66,z-.13,.046,.30,.04,'35534c')}
+   }
    if(marathon()&&zone===1&&i%3===0){
     const a=i%2?4.3:-4.3;
     for(const k of [-1,1])box(a,1.34,z+k*1.70,.14,2.68,.14,'a17654');
@@ -306,7 +314,7 @@ function createWorld(canvas) {
      glyph(ch,a-.17*Math.sin(turn),b,z-.17*Math.cos(turn),.093,'204f4b',turn)
     }else if(it.type==='poo'){
      const pull=magnet>0?clamp((7-z)/5,0,1):0;token(a+(x-a)*pull,z,t,it.y+(height+.70-it.y)*pull);
-    }else if(it.type==='shield'||it.type==='magnet'||it.type==='double')powerModel(it,z,t);
+    }else if(it.type==='shield'||it.type==='magnet'||it.type==='boots')powerModel(it,z,t);
     else if(it.type==='crate'){
      box(a,.43,z,1.42,.85,1.08,'ca925d');box(a,.862,z,.23,.025,1.09,'eed099');box(a,.45,z-.55,.23,.83,.024,'e6be88');box(a-.37,.26,z-.558,.27,.22,.026,'fae4bf')
     }else{
