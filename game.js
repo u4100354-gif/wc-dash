@@ -1,6 +1,9 @@
 'use strict';
 const $=id=>document.getElementById(id), canvas=$('screen');
-const length=360, words=['ЛИФТ','МАРС','УСПЕЛ'], clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
+let level=0,length=360;
+const routes=[{name:'Солнечный переход',meters:360},{name:'Большой коллектор',meters:1800}];
+const ease=v=>{const t=Math.max(0,Math.min(1,v));return t*t*(3-2*t)};
+const words=['ЛИФТ','МАРС','УСПЕЛ'], clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
 let best=0,mute=false;
 try{best=Number(localStorage.wcDashBest)||0;mute=localStorage.wcDashMuted==='yes'}catch{}
 let state='menu',distance=0,lane=0,x=0,height=0,velocity=0,slide=0,coins=0,completed=0,letters=[],items=[],stamp=0,noticeUntil=0,clock=0,elapsed=0,toiletTime=0;
@@ -12,7 +15,36 @@ function scatter(a,b,z,color){
 }
 const render3D=createWorld(canvas);
 const roofHeight=1.90,rampLength=7,roofLength=15;
-const trains=[{z:64,a:2.2},{z:131,a:-2.2},{z:205,a:0},{z:279,a:2.2}];
+const firstTrains=[{z:64,a:2.2},{z:131,a:-2.2},{z:205,a:0},{z:279,a:2.2}];
+let trains=firstTrains,flows=[],warning='',firstNearby=0;
+function chooseRoute(index){
+ level=index;length=routes[index].meters;
+ document.querySelectorAll('[data-route]').forEach((b,i)=>b.setAttribute('aria-pressed',String(i===index)));
+ $('summary').textContent=index?'1 800 м по открытым путям. Видишь предупреждение о потоке — меняй полосу.':'360 м от лифта до WC. Собирай буквы и монетки кота Марса.';
+}
+function prepareRoute(){
+ trains=level?Array.from({length:15},(_,i)=>({z:36+116*i,a:2.2*[1,-1,0,1,0,-1][i%6]})):firstTrains;
+ // Moving fronts cross in dedicated clear stretches between the stationary cars.
+ flows=level?Array.from({length:15},(_,i)=>({trigger:71+116*i,a:[0,-2.2,2.2,-2.2,0,2.2,0][i%7],size:12+3*(i%3),front:null,passed:false})):
+ [{trigger:221,a:-2.2,size:12,front:null,passed:false}];
+ warning='';firstNearby=0;
+}
+function updateFlows(dt){
+ warning='';
+ for(const f of flows){
+  if(f.passed||distance<f.trigger)continue;
+  if(f.front===null){f.front=distance+63;soundscape.effect('alarm')}
+  f.front-=dt*(level?11:8);
+  const lead=f.front-distance;
+  if(lead+f.size<-.7){f.passed=true;continue}
+  if(Math.abs(f.a-x)<1.13&&lead<=.48&&lead+f.size>=-.55){
+   if(!shield&&grace<=0){end(false,'Накрыл встречный поток');return false}
+   if(shield)absorbHit();f.passed=true;continue
+  }
+  if(lead<62)warning='Поток '+(f.a<0?'слева':f.a>0?'справа':'по центру')+'!';
+ }
+ return true
+}
 let ground=0,cameraLift=0,magnet=0,shield=false,grace=0,finishFrom=0;
 const grounded=()=>height<=ground+.015;
 const speed=()=>13+8*distance/length;
@@ -23,9 +55,9 @@ function roofAt(train,z){
 function course(){
  const list=[],add=(type,z,a,y=0)=>list.push({type,z,a,y});
  // Each pattern has an optional challenge lane and two passing lanes.
- const challenges=[[22,0,'crate'],[45,-1,'bar'],[105,1,'crate'],[121,0,'bar'],[173,-1,'crate'],[191,1,'bar'],[246,0,'crate'],[264,-1,'bar'],[322,1,'crate'],[341,0,'bar']];
+ const challenges=level?Array.from({length:15},(_,i)=>[[14+i*116,(i%3)-1,i%2?'bar':'crate'],[27+i*116,((i+1)%3)-1,i%2?'crate':'bar']]).flat():[[22,0,'crate'],[45,-1,'bar'],[105,1,'crate'],[121,0,'bar'],[173,-1,'crate'],[191,1,'bar'],[246,0,'crate'],[264,-1,'bar'],[322,1,'crate'],[341,0,'bar']];
  for(const [z,lane,type] of challenges)add(type,z,lane*2.2);
- for(let z=5;z<351;z+=2){
+ for(let z=5;z<length-9;z+=2){
   const near=challenges.find(([at])=>Math.abs(at-z)<=8);
   const train=trains.find(v=>z>=v.z-4&&z<=v.z+2*rampLength+roofLength+2);
   if(train){add('poo',z,train.a,roofAt(train,z)+.64);continue}
@@ -34,11 +66,12 @@ function course(){
    add('poo',z,l*2.2,y);continue}
   add('poo',z,[0,0,-2.2,0,2.2,2.2][Math.floor(z/9)%6],.65)
  }
- for(let i=0,z=10;z<350;z+=15,i++){
+ for(let i=0,z=10;z<length-10;z+=15,i++){
   const train=trains.find(v=>z>=v.z&&z<=v.z+2*rampLength+roofLength);
   add('letter',z,train?train.a:[0,-2.2,2.2,0][i%4],train?roofAt(train,z):0)
  }
  for(const [type,z,a] of [['magnet',7,0],['shield',39,-2.2],['magnet',100,2.2],['shield',164,0],['magnet',238,-2.2],['shield',273,2.2]])add(type,z,a);
+ if(level)for(let i=1;i<14;i++)add(i%2?'magnet':'shield',i*116+4,2.2*([0,1,-1][i%3]));
  return list.sort((a,b)=>a.z-b.z)
 }
 function absorbHit(){
@@ -65,8 +98,9 @@ function letterFor(it){
 function score(){return Math.floor(distance)+coins*10+completed*100}
 function status(){
  $('powers').textContent=[shield?'◇ Щит':'',magnet>0?'∩ Магнит '+Math.ceil(magnet)+' с':''].filter(Boolean).join('  ·  ');
- const section=Math.min(2,Math.floor(distance/120));
- $('section').textContent=sections[section];$('routeFill').style.transform='scaleX('+Math.min(1,distance/length)+')';
+ const section=Math.min(2,Math.floor(distance/(length/3)));
+ $('flowWarning').textContent=state==='run'?warning:'';
+ $('section').textContent=level?['Депо','Набережная','Коллектор'][section]:sections[section];$('routeFill').style.transform='scaleX('+Math.min(1,distance/length)+')';
  $('distance').textContent=Math.max(0,Math.ceil(length-distance))+' м';$('count').textContent=coins;
  const word=activeWord();$('word').innerHTML=word?'<b>'+word.slice(0,collected())+'</b><i>'+word.slice(collected())+'</i>':'✓ '+words.length+'/'+words.length;
  $('best').textContent=best;$('mute').textContent=mute?'♩':'♫';$('mute').setAttribute('aria-label',mute?'Включить звук':'Выключить звук')
@@ -76,10 +110,11 @@ function ui(){
  soundscape.sync(state==='run'||state==='finish',mute);
  $('cover').hidden=state!=='menu';$('hud').hidden=state==='menu';$('pause').hidden=state!=='run';$('overlay').hidden=!['win','lost','pause'].includes(state);status()
 }
-function start(){state='run';lane=x=height=velocity=slide=distance=coins=completed=elapsed=toiletTime=0;ground=cameraLift=magnet=grace=0;shield=false;poseSlide=poseBank=landing=0;flecks=[];letters=[];items=course();$('toast').textContent='';try{soundscape.init()}catch{}ui()}
+function start(){prepareRoute();state='run';lane=x=height=velocity=slide=distance=coins=completed=elapsed=toiletTime=0;ground=cameraLift=magnet=grace=0;shield=false;poseSlide=poseBank=landing=0;flecks=[];letters=[];items=course();$('toast').textContent='';try{soundscape.init()}catch{}ui()}
 function modal(label,title,details,button){$('label').textContent=label;$('heading').textContent=title;$('result').textContent=details;$('action').textContent=button;$('toast').textContent='';ui()}
-function end(won){state=won?'win':'lost';best=Math.max(best,score());try{localStorage.wcDashBest=String(best)}catch{}
- soundscape.effect(won?'win':'hit');modal(won?'ФИНИШ · WC':'ЗАБЕГ ОКОНЧЕН',won?'Успел!':'Не добежал!',Math.floor(distance)+' м · 💩 '+coins+' · Слов '+completed+'/3 · '+score()+' очк.','Ещё раз →')}
+function end(won,cause){state=won?'win':'lost';best=Math.max(best,score());try{localStorage.wcDashBest=String(best)}catch{}
+
+ soundscape.effect(won?'win':'hit');modal(won?'ФИНИШ · WC':'ЗАБЕГ ОКОНЧЕН',won?'Успел!':cause||'Не добежал!',Math.floor(distance)+' м · 💩 '+coins+' · Слов '+completed+'/3 · '+score()+' очк.',won&&level===0?'На второй уровень →':'Ещё раз →')}
 function pause(){if(state!=='run')return;state='pause';modal('ПЕРЕРЫВ','Пауза','До унитаза ещё '+Math.ceil(length-distance)+' м.','Продолжить →')}
 function move(action){
  if(state!=='run')return;
@@ -89,7 +124,7 @@ function move(action){
 }
 function tick(dt){
  elapsed+=dt;
- if(state==='finish'){toiletTime+=dt;x=finishFrom*(1-clamp(toiletTime/.85,0,1))**2;if(toiletTime>=3.25)end(true);return}
+ if(state==='finish'){toiletTime+=dt;x=finishFrom*(1-ease(toiletTime/1.08));if(toiletTime>=4.05)end(true);return}
  distance=Math.min(length,distance+dt*speed());x+=(lane*2.2-x)*(1-Math.exp(-15*dt));slide=Math.max(0,slide-dt);
  magnet=Math.max(0,magnet-dt);grace=Math.max(0,grace-dt);
  const wasGrounded=grounded()&&velocity<=0;let support=0;
@@ -107,9 +142,11 @@ function tick(dt){
  velocity-=17*dt;height=Math.max(ground,height+velocity*dt);if(grounded()&&velocity<0)velocity=0;
  if(wasAirborne&&grounded()){landing=1;scatter(x,ground+.12,distance,'dcd9b3')}
  if(grounded()&&!slide)soundscape.effect('step');
+ if(!updateFlows(dt))return;
  if(elapsed>noticeUntil)$('toast').textContent='';
- for(const it of items){
-  if(it.done)continue;
+ while(firstNearby<items.length&&items[firstNearby].z<distance-2.3)firstNearby++;
+ for(let i=firstNearby;i<items.length&&items[i].z<=distance+2.3;i++){
+  const it=items[i];if(it.done)continue;
   const dz=it.z-distance,dx=Math.abs(it.a-x),pull=it.type==='poo'&&magnet>0;
   if(Math.abs(dz)>(pull?2.2:.57)||dx>(pull?4.7:.86))continue;
   if(it.type==='poo'){
@@ -135,7 +172,7 @@ let prev=0;
 function frame(ms){const dt=Math.min(.07,(ms-(prev||ms))/1000);prev=ms;clock+=dt;
  if(state==='run'||state==='finish'){let rest=dt;while(rest>0&&(state==='run'||state==='finish')){const step=Math.min(rest,1/120);tick(step);rest-=step}status()}
  render3D();requestAnimationFrame(frame)}
-$('start').onclick=start;$('action').onclick=()=>{if(state==='pause'){state='run';ui()}else start()};$('pause').onclick=pause;$('home').onclick=()=>{state='menu';height=slide=0;ui()};
+$('start').onclick=start;$('action').onclick=()=>{if(state==='pause'){state='run';ui()}else {if(state==='win'&&level===0)chooseRoute(1);start()}};$('pause').onclick=pause;$('home').onclick=()=>{state='menu';height=slide=0;ui()};
 $('mute').onclick=()=>{mute=!mute;try{soundscape.init()}catch{}soundscape.sync(state==='run'||state==='finish',mute);try{localStorage.wcDashMuted=mute?'yes':'no'}catch{}status()};
 const keys={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',Space:'up',ArrowDown:'down',KeyA:'left',KeyD:'right',KeyW:'up',KeyS:'down'};
 addEventListener('keydown',e=>{if(e.repeat)return;if(e.code==='Escape'){if(state==='pause')$('action').click();else pause();return}
@@ -149,4 +186,5 @@ canvas.addEventListener('pointermove',swipe);canvas.addEventListener('pointerup'
 addEventListener('blur',pause);document.addEventListener('visibilitychange',()=>{if(document.hidden)pause()});
 $('hint').textContent=navigator.maxTouchPoints?'Свайпай по экрану':'Стрелки или WASD';
 if(navigator.maxTouchPoints)document.querySelector('footer').prepend(document.createTextNode('Свайпы'));
+document.querySelectorAll('[data-route]').forEach((b,i)=>b.onclick=()=>chooseRoute(i));chooseRoute(0);
 ui();requestAnimationFrame(frame);

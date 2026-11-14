@@ -21,3 +21,5 @@ h1{font:900 clamp(44px,6.2vw,96px)/.88 'Arial Black','Helvetica Neue',system-ui,
 #section{color:#d5e9af}.poster{background:#fff3d9;border-top-color:#edbb6c}.poster:after{filter:brightness(1.035)}.route i{background:#dca24e}.primary{background:#1e574e}
 
 #powers{position:absolute;top:80px;left:50%;transform:translateX(-50%);font:700 12px system-ui;color:#d9ffdb;background:#184941e8;border-radius:20px;padding:5px 12px;white-space:nowrap}#powers:empty,#hud[hidden]~#powers{display:none}
+
+#routes{display:flex;gap:5px;margin-top:13px}#routes button{font:700 12px system-ui;color:#28594c;border:1px solid #87a08b;background:transparent;border-radius:3px;padding:6px 8px}#routes button[aria-pressed=true]{background:#275847;color:#fff4cf}#flowWarning{position:absolute;top:19%;left:50%;transform:translateX(-50%);border-radius:4px;padding:6px 12px;color:#ffedcc;background:#8f3e21;font:bold 14px system-ui;white-space:nowrap}#flowWarning:empty,#hud[hidden]~#flowWarning{display:none}
