@@ -55,6 +55,8 @@ const soundscape=(()=>{
    case 'word':case 'win':[0,4,7,12].forEach((n,i)=>note(fx,t+.085*i,hz(60+n),.36,.14));if(name==='win')brush(fx,t+.34,.55,.065,1500);break;
    case 'power':note(fx,t,440,.21,.10);note(fx,t+.08,880,.28,.10);break;
    case 'shield':brush(fx,t,.22,.12,2900,true);note(fx,t,720,.25,.09,'sine',290);break;
+   case 'launch':note(fx,t,76,.24,.16,'triangle',48);brush(fx,t+.06,.33,.12,560);note(fx,t+.11,145,.48,.085,'sine',620);break;
+   case 'land':brush(fx,t,.14,.09,620);note(fx,t,142,.12,.075,'sine',82);break;
    case 'alarm':note(fx,t,320,.20,.09,'triangle');note(fx,t+.26,400,.17,.08,'triangle');break;
    case 'hit':note(fx,t,130,.22,.23,'triangle',48);brush(fx,t,.12,.11,860);break;
   }
