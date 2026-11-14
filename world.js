@@ -79,7 +79,10 @@ function createWorld(canvas) {
   const modelScale=idle?1:.83;
   const sn=Math.sin(angle),cs=Math.cos(angle),phase=t*(idle?2:11.2);
   const closing=state==='finish'||state==='win';
-  const sit=closing?ease((toiletTime-1.38)/.97):0;
+  const sit=closing?ease((toiletTime-1.28)/.70):0;
+  // Pivot clear of the front rim. Lift the thighs before backing onto the seat.
+  const settle=closing?ease((toiletTime-2.48)/.36):0;
+  const seatedHip=.819+.125+(.09*(1-settle));
   const tuck=idle?0:ease(poseSlide),bank=idle?0:-poseBank*.24;
   const recoil=idle?0:landing, stride=idle?.055:jump?.28:.86;
   const bob=(idle?.024*Math.sin(phase):.067*Math.abs(Math.cos(phase)))*(1-tuck);
@@ -90,7 +93,7 @@ function createWorld(canvas) {
    const localY=j-(1-Math.cos(lean))*pivot+i*Math.sin(lean);
    const lift=leg?0:recoil*.21+fold*.64;
    const depth=k-fold*pivot*.53;
-   const seatedHeight=sit*(1.17/modelScale-.84);
+   const seatedHeight=sit*(seatedHip/modelScale-.84);
    box(a+(localX*cs+depth*sn)*modelScale,b+(localY-lift+bob*(1-sit)+(!leg?seatedHeight:0))*modelScale,z+(depth*cs-localX*sn)*modelScale,w*modelScale,h*modelScale,d*modelScale,c,angle,tilt-fold*.51,lean)
   }
   for(const s of [-1,1]){
@@ -103,10 +106,10 @@ function createWorld(canvas) {
     const dy=y1-y2,dz=z1-z2;
     part(s*(.20+.08*sit),.5*(y1+y2),.5*(z1+z2),width,Math.hypot(dy,dz)+.035,width,col,Math.atan2(dz,dy),true)
    }
-   const hipY=mix(.86-tuck*.52,1.17/modelScale+.04,sit);
-   const kneeY=mix(mix(knee,s===1?.27:.36,tuck),1.17/modelScale+.01,sit);
+   const hipY=mix(.86-tuck*.52,seatedHip/modelScale,sit);
+   const kneeY=mix(mix(knee,s===1?.27:.36,tuck),seatedHip/modelScale+.03,sit);
    const kneeZ=mix(mix(step*.15,s===1?.47:.30,tuck),.63,sit);
-   const ankleY=mix(.18+Math.max(0,-step)*.13*(1-tuck),.76,sit);
+   const ankleY=mix(.18+Math.max(0,-step)*.13*(1-tuck),.46,sit);
    const ankleZ=mix(mix(step*.32,s===1?.93:-.11,tuck),.73,sit);
    legPart(hipY,0,kneeY,kneeZ,.28,'324356');legPart(kneeY,kneeZ,ankleY,ankleZ,.25,'40576a');
    part(s*(.20+.08*sit),ankleY-.052,ankleZ+.08,.33,.20,.46,'bd744b',-.10*tuck,true);
@@ -134,8 +137,11 @@ function createWorld(canvas) {
   part(-.16,2.01,.329,.135,.095,.029,'e6cda3');part(-.16,2.015,.348,.074,.026,.014,'725d49');
   for(let i=-2;i<=2;i++)part(i*.108,2.01,.305,.035,.15,.022,'308079');
  }
- function wc(a,z){round(a,.10,z,.99,.18,1.35,'b4d5ce');round(a,.39,z+.14,.71,.50,.97,'cee2d9');put(bowl,a,.45,z,1.64,.72,2.05,'f5f4e6');round(a,.83,z,.66,.03,.91,'69b8b0');
-  box(a,1.24,z+.80,1.20,.86,.40,'dedfd1');box(a,1.70,z+.8,1.29,.11,.47,'fff8d9');box(a+.33,1.77,z+.78,.19,.05,.1,'69908c');
+ function wc(a,z){
+  // Seat height and front edge match the seated hip and the knee clearance.
+  round(a,.07,z,.99,.126,1.35,'b4d5ce');round(a,.273,z+.14,.71,.35,.97,'cee2d9');
+  put(bowl,a,.315,z,1.64,.504,2.05,'f5f4e6');round(a,.581,z,.66,.021,.91,'69b8b0');
+  box(a,.868,z+.80,1.20,.602,.40,'dedfd1');box(a,1.19,z+.8,1.29,.077,.47,'fff8d9');box(a+.33,1.239,z+.78,.19,.035,.1,'69908c');
   box(a,2.69,z+.94,1.62,.74,.16,'124b48');glyph('W',a-.30,2.69,z+.846,.104,'deffa0');glyph('C',a+.32,2.69,z+.846,.104,'deffa0')
  }
  function token(a,z,t,y=.65){const b=y+Math.sin(t*3+z*.08)*.085;round(a,b-.15,z,.77,.13,.77,'fab844');
@@ -213,7 +219,7 @@ function createWorld(canvas) {
  }
  function powerModel(it,z,t){
   const y=1.13+.11*Math.sin(3*t+it.z),a=it.a,turn=.30*Math.sin(2*t);
-  if(it.type==='magnet'){
+  if(it.type==='double'){round(a,y,z,.70,.17,.70,'edb54f',0,Math.PI/2);box(a,y,z-.1,.10,.44,.06,'fff1a6',0,0,.7);box(a,y,z-.1,.10,.44,.06,'fff1a6',0,0,-.7)}else if(it.type==='magnet'){
    for(const side of [-1,1]){box(a+side*.23,y,z,.18,.57,.19,'dc6057',turn);box(a+side*.23,y+.28,z,.18,.16,.19,'f9eed1',turn)}
    box(a,y-.26,z,.61,.17,.19,'db6559',turn)
   }else{
@@ -223,7 +229,7 @@ function createWorld(canvas) {
  }
  function world(d,menu){
   const start=Math.floor((d-12)/5),end=Math.floor((d+66)/5);
-  for(let i=start;i<=end;i++){const z=i*5-d,zone=Math.min(2,Math.max(0,Math.floor(i*5/(length/3))));
+  for(let i=start;i<=end;i++){const z=i*5-d,zone=marathon()?Math.abs(Math.floor(i/32))%3:Math.min(2,Math.max(0,Math.floor(i*5/(length/3))));
    const covered=(i>=0&&i<3)||((i%26+26)%26<3);
    const ceramic=['7aada4','88b5a6','91b587'][zone],wall=['efe6c9','e7e9d9','ebe4c8'][zone];
    for(let l=-1;l<=1;l++)box(l*2.2,-.13,z,2.186,.25,4.98,(i+l)%2?'c2c9b7':'cbd1bf');
@@ -246,6 +252,12 @@ function createWorld(canvas) {
    if(i%8===4)bench(1,z);
    if(i%(zone===2?2:5)===1)garden(3.91,z);
    if(i%16===6)cat(-3.7,z,clock);
+   if(marathon()&&zone===1&&i%3===0){
+    const a=i%2?4.3:-4.3;
+    for(const k of [-1,1])box(a,1.34,z+k*1.70,.14,2.68,.14,'a17654');
+    box(a,.86,z,.94,.24,3.62,'aa8056');
+    for(let k=-2;k<=2;k++){box(a,2.64,z+k*.70,1.52,.12,.70,k%2?'dd975a':'f1dcaa');round(a,1.07,z+k*.54,.35,.32,.35,k%2?'a7b36d':'cf804b')}
+   }
    if(!covered)continue;
    if(zone===0)box(0,5.50,z,9.2,.24,5.01,'abc1b4');
    else{box(-2.65,5.50,z,3.9,.22,5.01,'ced2b7');box(.78,5.55,z,.13,.16,5.01,'719e94');box(3.32,5.55,z,.13,.16,5.01,'719e94')}
@@ -268,9 +280,9 @@ function createWorld(canvas) {
   gl.uniform4f(U.basis,Math.sin(yaw),Math.cos(yaw),Math.sin(pitch),Math.cos(pitch));
   gl.uniform4f(U.lens,2*f/w,2*f/h,offsetX,offsetY);}
   shapes.forEach(sh=>sh.used=0);world(d,menu);
-  const heroX=menu?0:x,heroZ=closing?1.32*ease(toiletTime/1.30)+.15*ease((toiletTime-1.50)/.75):0;
+  const heroX=menu?0:x,heroZ=closing?.16*ease(toiletTime/.80)+.76*ease((toiletTime-1.94)/.54):0;
   round(heroX-.15,(menu?0:ground)+.009,heroZ-.09,1.27-height*.10,.012,1.43-height*.1,'a4b5a2');round(heroX-.04,(menu?0:ground)+.021,heroZ,.82-height*.12,.012,.94-height*.12,'92a99a');
-  person(heroX,menu?0:height,heroZ,menu?-2.32:closing?Math.PI*ease((toiletTime-.62)/1.02):clamp((lane*2.2-x)*.15,-.25,.25),t,slide>0&&height===0&&!menu,!grounded(),menu);
+  person(heroX,menu?0:height,heroZ,menu?-2.32:closing?Math.PI*ease((toiletTime-.66)/.61):clamp((lane*2.2-x)*.15,-.25,.25),t,slide>0&&height===0&&!menu,!grounded(),menu);
   if(menu){cat(-.93,.55,t);wc(mobile?1.70:2.25,3.85);token(-1.3,1.8,t)}
   else{
    for(const f of flows){
@@ -288,13 +300,13 @@ function createWorld(canvas) {
    for(const train of trains)carriage(train,d);
    if(shield&&!closing){for(let j=0;j<5;j++){const phi=t*2+j*Math.PI*.4;box(x+.65*Math.cos(phi),height+.92+.24*Math.sin(phi*2),.58*Math.sin(phi),.075,.18,.08,'7de9eb',phi)}}
    if(length-d<66)wc(0,length-d+1.65);
-   for(let idx=firstNearby;idx<items.length&&items[idx].z<d+61;idx++){const it=items[idx];let z=it.z-d;if(it.done||z< -2||z>60||(it.type==='letter'&&completed>=words.length))continue;let a=it.a;
+   for(let idx=firstNearby;idx<items.length&&items[idx].z<d+61;idx++){const it=items[idx];let z=it.z-d;if(it.done||z< -2||z>60||(it.type==='letter'&&!activeWord()))continue;let a=it.a;
     if(it.type==='letter'){let ch=letterFor(it);if(!ch)continue;let b=it.y+1.28+.06*Math.sin(t*3+z*.07),turn=.30*Math.sin(t*1.6+it.z);
      box(a,b,z,.70,.74,.21,'127668',turn);box(a-.125*Math.sin(turn),b,z-.125*Math.cos(turn),.62,.65,.052,'cdf194',turn);
      glyph(ch,a-.17*Math.sin(turn),b,z-.17*Math.cos(turn),.093,'204f4b',turn)
     }else if(it.type==='poo'){
      const pull=magnet>0?clamp((7-z)/5,0,1):0;token(a+(x-a)*pull,z,t,it.y+(height+.70-it.y)*pull);
-    }else if(it.type==='shield'||it.type==='magnet')powerModel(it,z,t);
+    }else if(it.type==='shield'||it.type==='magnet'||it.type==='double')powerModel(it,z,t);
     else if(it.type==='crate'){
      box(a,.43,z,1.42,.85,1.08,'ca925d');box(a,.862,z,.23,.025,1.09,'eed099');box(a,.45,z-.55,.23,.83,.024,'e6be88');box(a-.37,.26,z-.558,.27,.22,.026,'fae4bf')
     }else{

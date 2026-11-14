@@ -1,9 +1,10 @@
 'use strict';
 const $=id=>document.getElementById(id), canvas=$('screen');
 let level=0,length=360;
-const routes=[{name:'Солнечный переход',meters:360},{name:'Большой коллектор',meters:1800}];
+const routes=[{name:'Солнечный переход',meters:360},{name:'Большой коллектор',meters:1800},{name:'Марафон',meters:Infinity}];
 const ease=v=>{const t=Math.max(0,Math.min(1,v));return t*t*(3-2*t)};
 const words=['ЛИФТ','МАРС','УСПЕЛ'], clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
+let doubleTime=0,settled=false;
 let best=0,mute=false;
 try{best=Number(localStorage.wcDashBest)||0;mute=localStorage.wcDashMuted==='yes'}catch{}
 let state='menu',distance=0,lane=0,x=0,height=0,velocity=0,slide=0,coins=0,completed=0,letters=[],items=[],stamp=0,noticeUntil=0,clock=0,elapsed=0,toiletTime=0;
@@ -17,10 +18,11 @@ const render3D=createWorld(canvas);
 const roofHeight=1.90,rampLength=7,roofLength=15;
 const firstTrains=[{z:64,a:2.2},{z:131,a:-2.2},{z:205,a:0},{z:279,a:2.2}];
 let trains=firstTrains,flows=[],warning='',firstNearby=0;
+const marathon=()=>level===2;
 function chooseRoute(index){
  level=index;length=routes[index].meters;
  document.querySelectorAll('[data-route]').forEach((b,i)=>b.setAttribute('aria-pressed',String(i===index)));
- $('summary').textContent=index?'1 800 м по открытым путям. Видишь предупреждение о потоке — меняй полосу.':'360 м от лифта до WC. Собирай буквы и монетки кота Марса.';
+ $('summary').textContent=index===2?'Бесконечная трасса. Обходи потоки, собирай монеты и устанавливай рекорд дистанции.':index?'1 800 м по открытым путям. Видишь предупреждение о потоке — меняй полосу.':'360 м от лифта до WC. Собирай буквы и монетки кота Марса.';
 }
 function prepareRoute(){
  trains=level?Array.from({length:15},(_,i)=>({z:36+116*i,a:2.2*[1,-1,0,1,0,-1][i%6]})):firstTrains;
@@ -47,7 +49,7 @@ function updateFlows(dt){
 }
 let ground=0,cameraLift=0,magnet=0,shield=false,grace=0,finishFrom=0;
 const grounded=()=>height<=ground+.015;
-const speed=()=>13+8*distance/length;
+const speed=()=>marathon()?13+Math.min(10,distance/100):13+8*distance/length;
 function roofAt(train,z){
  const along=z-train.z;
  return roofHeight*clamp(Math.min(along,2*rampLength+roofLength-along)/rampLength,0,1)
@@ -71,51 +73,57 @@ function course(){
   add('letter',z,train?train.a:[0,-2.2,2.2,0][i%4],train?roofAt(train,z):0)
  }
  for(const [type,z,a] of [['magnet',7,0],['shield',39,-2.2],['magnet',100,2.2],['shield',164,0],['magnet',238,-2.2],['shield',273,2.2]])add(type,z,a);
+ for(let z=54;z<length;z+=182)add('double',z,0);
  if(level)for(let i=1;i<14;i++)add(i%2?'magnet':'shield',i*116+4,2.2*([0,1,-1][i%3]));
  return list.sort((a,b)=>a.z-b.z)
 }
 function absorbHit(){
  if(grace>0)return true;
  if(!shield){end(false);return false}
- shield=false;grace=1.2;scatter(x,height+1,distance,'64dfed');notice('Щит спас!');soundscape.effect('shield');return true
+ shield=false;grace=1.2+.6*profile.shield;scatter(x,height+1,distance,'64dfed');notice('Щит спас!');soundscape.effect('shield');return true
 }
 const collected=()=>letters.length;
-const activeWord=()=>words[completed]||'';
+const wordAt=i=>marathon()?words[i%words.length]:(words[i]||'');
+const activeWord=()=>wordAt(completed);
 function letterFor(it){
  // Preview upcoming letters in route order. Missing a tile shifts the next opportunity.
 
  if(it.type!=='letter')return;
- if(completed>=words.length)return '';
+ if(!activeWord())return '';
  let index=collected(),wordIndex=completed;
  for(const tile of items){
   if(tile===it)break;
   if(tile.type==='letter'&&!tile.done&&tile.z>=distance-.46){
-   index++;if(index>=words[wordIndex].length){wordIndex++;index=0;if(wordIndex>=words.length)return ''}
+   index++;if(index>=wordAt(wordIndex).length){wordIndex++;index=0;if(!wordAt(wordIndex))return ''}
   }
  }
- return words[wordIndex][index]
+ return wordAt(wordIndex)[index]
 }
 function score(){return Math.floor(distance)+coins*10+completed*100}
 function status(){
- $('powers').textContent=[shield?'◇ Щит':'',magnet>0?'∩ Магнит '+Math.ceil(magnet)+' с':''].filter(Boolean).join('  ·  ');
- const section=Math.min(2,Math.floor(distance/(length/3)));
+ $('powers').textContent=[doubleTime>0?'×2 '+Math.ceil(doubleTime)+' с':'',shield?'◇ Щит':'',magnet>0?'∩ Магнит '+Math.ceil(magnet)+' с':''].filter(Boolean).join('  ·  ');
+ const section=marathon()?Math.floor(distance/160)%3:Math.min(2,Math.floor(distance/(length/3)));
  $('flowWarning').textContent=state==='run'?warning:'';
- $('section').textContent=level?['Депо','Набережная','Коллектор'][section]:sections[section];$('routeFill').style.transform='scaleX('+Math.min(1,distance/length)+')';
- $('distance').textContent=Math.max(0,Math.ceil(length-distance))+' м';$('count').textContent=coins;
+ $('section').textContent=marathon()?['Марафон','Рынок','Депо'][section]:level?['Депо','Набережная','Коллектор'][section]:sections[section];$('routeFill').style.transform='scaleX('+(marathon()?(distance%1000)/1000:Math.min(1,distance/length))+')';
+ $('distance').textContent=(marathon()?Math.floor(distance):Math.max(0,Math.ceil(length-distance)))+' м';$('count').textContent=coins;
  const word=activeWord();$('word').innerHTML=word?'<b>'+word.slice(0,collected())+'</b><i>'+word.slice(collected())+'</i>':'✓ '+words.length+'/'+words.length;
- $('best').textContent=best;$('mute').textContent=mute?'♩':'♫';$('mute').setAttribute('aria-label',mute?'Включить звук':'Выключить звук')
+ $('best').textContent=marathon()?profile.meters+' м':best;$('mute').textContent=mute?'♩':'♫';$('mute').setAttribute('aria-label',mute?'Включить звук':'Выключить звук')
 }
 function notice(s){$('toast').textContent=s;noticeUntil=elapsed+1.45}
 function ui(){
  soundscape.sync(state==='run'||state==='finish',mute);
  $('cover').hidden=state!=='menu';$('hud').hidden=state==='menu';$('pause').hidden=state!=='run';$('overlay').hidden=!['win','lost','pause'].includes(state);status()
 }
-function start(){prepareRoute();state='run';lane=x=height=velocity=slide=distance=coins=completed=elapsed=toiletTime=0;ground=cameraLift=magnet=grace=0;shield=false;poseSlide=poseBank=landing=0;flecks=[];letters=[];items=course();$('toast').textContent='';try{soundscape.init()}catch{}ui()}
+function start(){doubleTime=0;settled=false;prepareRoute();state='run';lane=x=height=velocity=slide=distance=coins=completed=elapsed=toiletTime=0;ground=cameraLift=magnet=grace=0;shield=false;poseSlide=poseBank=landing=0;flecks=[];letters=[];if(marathon())resetDistricts();else items=course();$('toast').textContent='';try{soundscape.init()}catch{}ui()}
 function modal(label,title,details,button){$('label').textContent=label;$('heading').textContent=title;$('result').textContent=details;$('action').textContent=button;$('toast').textContent='';ui()}
-function end(won,cause){state=won?'win':'lost';best=Math.max(best,score());try{localStorage.wcDashBest=String(best)}catch{}
+function end(won,cause){
+ if(settled)return;settled=true;profile.wallet+=coins;
+ if(marathon())profile.meters=Math.max(profile.meters,Math.floor(distance));
+ if(won&&level===0)profile.first=true;if(won&&level===1)profile.second=true;saveProfile();
+ state=won?'win':'lost';best=Math.max(best,score());try{localStorage.wcDashBest=String(best)}catch{}
 
- soundscape.effect(won?'win':'hit');modal(won?'ФИНИШ · WC':'ЗАБЕГ ОКОНЧЕН',won?'Успел!':cause||'Не добежал!',Math.floor(distance)+' м · 💩 '+coins+' · Слов '+completed+'/3 · '+score()+' очк.',won&&level===0?'На второй уровень →':'Ещё раз →')}
-function pause(){if(state!=='run')return;state='pause';modal('ПЕРЕРЫВ','Пауза','До унитаза ещё '+Math.ceil(length-distance)+' м.','Продолжить →')}
+ soundscape.effect(won?'win':'hit');modal(won?'ФИНИШ · WC':'ЗАБЕГ ОКОНЧЕН',won?'Успел!':cause||'Не добежал!',Math.floor(distance)+' м · 💩 '+coins+' · Слов '+completed+(marathon()?'':'/3')+' · '+score()+' очк. · Кошелёк '+profile.wallet+' 💩',won&&level===0?'На второй уровень →':'Ещё раз →')}
+function pause(){if(state!=='run')return;state='pause';modal('ПЕРЕРЫВ','Пауза',(marathon()?'Пройдено '+Math.floor(distance):'До унитаза ещё '+Math.ceil(length-distance))+' м.','Продолжить →')}
 function move(action){
  if(state!=='run')return;
  if(action==='left'||action==='right'){lane=clamp(lane+(action==='left'?-1:1),-1,1);return}
@@ -125,8 +133,9 @@ function move(action){
 function tick(dt){
  elapsed+=dt;
  if(state==='finish'){toiletTime+=dt;x=finishFrom*(1-ease(toiletTime/1.08));if(toiletTime>=4.05)end(true);return}
+ if(marathon())extendDistricts();
  distance=Math.min(length,distance+dt*speed());x+=(lane*2.2-x)*(1-Math.exp(-15*dt));slide=Math.max(0,slide-dt);
- magnet=Math.max(0,magnet-dt);grace=Math.max(0,grace-dt);
+ doubleTime=Math.max(0,doubleTime-dt);magnet=Math.max(0,magnet-dt);grace=Math.max(0,grace-dt);
  const wasGrounded=grounded()&&velocity<=0;let support=0;
  for(const train of trains){const top=roofAt(train,distance);
   if(top<=0||Math.abs(x-train.a)>1.0)continue;
@@ -151,17 +160,17 @@ function tick(dt){
   if(Math.abs(dz)>(pull?2.2:.57)||dx>(pull?4.7:.86))continue;
   if(it.type==='poo'){
    if(!pull&&Math.abs(height+(slide>0?.38:.70)-it.y)>.76)continue;
-   coins++;scatter(it.a,it.y,it.z,'ffcb55');soundscape.effect('coin')
-  }else if(it.type==='magnet'||it.type==='shield'){
+   coins+=doubleTime>0?2:1;scatter(it.a,it.y,it.z,'ffcb55');soundscape.effect('coin')
+  }else if(it.type==='magnet'||it.type==='shield'||it.type==='double'){
    if(Math.abs(height-it.y)>1.5)continue;
-   if(it.type==='magnet'){magnet=6;notice('Магнит · 6 секунд')}else{shield=true;notice('Щит · защита от удара')}
+   if(it.type==='double'){doubleTime=5+profile.double*2;notice('Монеты ×2')}else if(it.type==='magnet'){magnet=6+2*profile.magnet;notice('Магнит · '+magnet+' с')}else{shield=true;notice('Щит · защита от удара')}
    soundscape.effect('power');scatter(it.a,it.y+1,it.z,'70e1e5')
   }else if(it.type==='letter'){
-   if(completed>=words.length||Math.abs(height-it.y)>1.5)continue;
+   if(!activeWord()||Math.abs(height-it.y)>1.5)continue;
    letters.push(activeWord()[collected()]);scatter(it.a,it.y+1.16,it.z,'bcf5a8');soundscape.effect('letter');
    if(collected()===activeWord().length){
     soundscape.effect('word');notice(activeWord()+'! +100');completed++;letters=[];
-    if(completed===words.length)for(const tile of items)if(tile.type==='letter')tile.done=true
+    if(!activeWord())for(const tile of items)if(tile.type==='letter')tile.done=true
    }
   }else if(it.type==='crate'?height<.83:slide<=0||height>.12){if(!absorbHit())return}
   it.done=true
@@ -186,5 +195,6 @@ canvas.addEventListener('pointermove',swipe);canvas.addEventListener('pointerup'
 addEventListener('blur',pause);document.addEventListener('visibilitychange',()=>{if(document.hidden)pause()});
 $('hint').textContent=navigator.maxTouchPoints?'Свайпай по экрану':'Стрелки или WASD';
 if(navigator.maxTouchPoints)document.querySelector('footer').prepend(document.createTextNode('Свайпы'));
+$('shopBtn').onclick=showShop;
 document.querySelectorAll('[data-route]').forEach((b,i)=>b.onclick=()=>chooseRoute(i));chooseRoute(0);
 ui();requestAnimationFrame(frame);
