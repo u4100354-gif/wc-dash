@@ -24,7 +24,10 @@ function extendDistricts(){
   items.push({type:gateType,a:gateLane,z:start+24,y:0});
   if(start>=1000){const other=gateLane===0?2.2:0;items.push({type:gateType==='bar'?'crate':'bar',a:other,z:start+24,y:0})}
   if(start>=2000)items.push({type:'hurdle',a:lateral(),z:start+36,y:0});
-  flows.push({trigger:start+80,a:lateral(),size:12+Math.floor(randomRoute()*4)*2,front:null,passed:false});
+  for(const offset of [112,140]){
+   const wave=planFlow(start+offset,group,districtNumber+offset);
+   if(wave)flows.push(wave)
+  }
   let road=lateral();
   for(let n=4;n<span-2;n+=2){
    if(n%16===4)road=lateral();

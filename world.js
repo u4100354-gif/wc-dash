@@ -87,18 +87,22 @@ function createWorld(canvas) {
   const seatedHip=.819+.28*modelScale/2+(.09*(1-settle));
   const flying=!idle&&flight!==null,hover=flying?ease((height-flight.from)/2):0;
   const tuck=idle?0:ease(poseSlide),bank=idle?0:-poseBank*.24;
-  const recoil=idle?0:landing,stride=idle?.055:jump?.28:.86;
-  const bob=(idle?.024*Math.sin(phase):.067*Math.abs(Math.cos(phase)))*(1-tuck)*(1-hover);
+  const recoil=idle||closing?0:landing;
+  const airborne=jump&&!idle&&!closing&&!flying&&height>ground+.025;
+  const ascent=airborne?clamp(velocity/8.8,0,1):0;
+  const curl=airborne?(1-ease(Math.abs(velocity)/8.8))*(1-tuck):0;
+  const falling=airborne&&velocity<0?ease(-velocity/7):0;
+  const stride=idle?.055:airborne?.08:.86;
+  const bob=(idle?.024*Math.sin(phase):.067*Math.abs(Math.cos(phase)))*(1-tuck)*(1-hover)*(airborne?0:1);
   // Rotate the upper body around the hips; keep the boot soles on the floor.
   function part(i,j,k,w,h,d,c,tilt=0,leg=false){
-   const lean=leg?0:bank+tuck*.13,fold=leg?0:tuck*1.02,pivot=j-.86;
-   const foldedY=.86+pivot*Math.cos(fold)-k*Math.sin(fold);
-   const localX=i*Math.cos(lean)-(foldedY-.67)*Math.sin(lean);
-   const localY=.67+(foldedY-.67)*Math.cos(lean)+i*Math.sin(lean);
-   const lift=leg?0:recoil*.21+tuck*.52;
-   const depth=pivot*Math.sin(fold)+k*Math.cos(fold);
+   const lean=leg?0:bank+tuck*.22,pivot=Math.max(0,j-.67),fold=leg?0:tuck;
+   const localX=i*Math.cos(lean)-pivot*Math.sin(lean);
+   const localY=j-(1-Math.cos(lean))*pivot+i*Math.sin(lean);
+   const lift=leg?0:recoil*.21+fold*.64;
+   const depth=k-fold*pivot*.53;
    const seatedHeight=sit*(seatedHip/modelScale-.84);
-   box(a+(localX*cs+depth*sn)*modelScale,b+(localY-lift+bob*(1-sit)+(!leg?seatedHeight:0))*modelScale,z+(depth*cs-localX*sn)*modelScale,w*modelScale,h*modelScale,d*modelScale,c,angle,tilt+fold,lean)
+   box(a+(localX*cs+depth*sn)*modelScale,b+(localY-lift+bob*(1-sit)+(!leg?seatedHeight:0))*modelScale,z+(depth*cs-localX*sn)*modelScale,w*modelScale,h*modelScale,d*modelScale,c,angle,tilt-fold*.51,lean)
   }
   for(const s of [-1,1]){
    const step=Math.sin(phase)*stride*s*(1-sit),lead=s===1?1:-.52;
@@ -114,27 +118,36 @@ function createWorld(canvas) {
    const runAnkleY=.18+Math.max(0,-step)*.13*(1-tuck),runAnkleZ=mix(step*.32,s===1?.93:-.11,tuck);
    const thighRun=Math.atan2(runKneeZ,.86-tuck*.52-runKneeY);
    const shinRun=Math.atan2(runAnkleZ-runKneeZ,runKneeY-runAnkleY);
-   const thighAngle=mix(mix(thighRun,.27+.09*s,hover),1.56+.035*s,sit);
+   const jumpThigh=.36+curl*1.12+ascent*.30-falling*.24+s*(.18+curl*.62);
+   const movingThigh=mix(thighRun,jumpThigh,airborne?1:0);
+   const thighAngle=mix(mix(movingThigh,.27+.09*s,hover),1.56+.035*s,sit);
    const swing=.065*Math.sin((toiletTime-2.45)*4.8+s*.43)*Math.exp(-Math.max(0,toiletTime-2.45)*1.8);
-   const shinAngle=mix(mix(shinRun,-.85+.12*s,hover),.09+.05*s+swing,sit);
-   const kneeY=hipY-.345*Math.cos(thighAngle),kneeZ=.345*Math.sin(thighAngle);
-   const ankleY=kneeY-.345*Math.cos(shinAngle),ankleZ=kneeZ+.345*Math.sin(shinAngle);
+   const jumpShin=-.45-curl*1.18-ascent*.27+falling*.40-s*curl*.18;
+   const movingShin=mix(shinRun,jumpShin,airborne?1:0);
+   const shinAngle=mix(mix(movingShin,-.85+.12*s,hover),.09+.05*s+swing,sit);
+   const rigidKneeY=hipY-.345*Math.cos(thighAngle),rigidKneeZ=.345*Math.sin(thighAngle);
+   const kneeY=mix(rigidKneeY,runKneeY,tuck*(1-sit)),kneeZ=mix(rigidKneeZ,runKneeZ,tuck*(1-sit));
+   const ankleY=mix(kneeY-.345*Math.cos(shinAngle),runAnkleY,tuck*(1-sit)),ankleZ=mix(kneeZ+.345*Math.sin(shinAngle),runAnkleZ,tuck*(1-sit));
    legPart(hipY,0,kneeY,kneeZ,.28,'324356');legPart(kneeY,kneeZ,ankleY,ankleZ,.25,'40576a');
    part(s*(.20+.08*sit),ankleY-.052,ankleZ+.08,.33,.20,.46,'bd744b',-.10*tuck,true);
    part(s*(.20+.08*sit),ankleY-.14,ankleZ+.08,.34,.065,.48,'273438',-.10*tuck,true);
    const salute=s===-1&&closing?ease((toiletTime-2.42)/.36)*(1-.72*ease((toiletTime-3.31)/.48)):0;
    const holding=!idle&&!closing&&magnet>0&&s===1;
-   const reach=tuck*(s===1?.40:-.24)+sit*.34+(holding?.12:0);
-   const armSpread=.15*hover+(holding?.11:0),armStep=holding?step*.28:step;
-   part(s*(.46+.13*tuck+armSpread*.5),1.32,-armStep*.16+reach*.3,.23,.46,.30,'df6033',-armStep*.55+reach);
-   part(s*(.47+.20*tuck+armSpread),1.09+salute*.42,-armStep*.28+.05+reach+salute*.16,.22,.28,.27,'ef8650',-armStep*.6-.28+reach-salute*1.72);
-   const handX=s*(.47+.21*tuck+armSpread),handY=.96+salute*.83,handZ=-armStep*.31+.08+reach+salute*.11;
+   const reach=tuck*(s===1?.40:-.24)+sit*.34+(holding?.22:0)+ascent*.18+curl*.18;
+   const armSpread=.15*hover+(holding?.23:0)+curl*.18,armStep=holding?step*.28:step;
+   const armX=s*(.46+.13*tuck+armSpread*.5),elbowX=s*(.47+.20*tuck+armSpread);
+   const elbowY=1.09+salute*.42+(holding?.12:0)+curl*.10;
+   const elbowZ=-armStep*.28+.05+reach+salute*.16-curl*.19;
+   const handX=s*(.47+.21*tuck+armSpread),handY=elbowY-.16,handZ=elbowZ+.045;
+   part(armX,1.32,-armStep*.16+reach*.3,.23,.46,.30,'df6033',-armStep*.55+reach);
+   const forearmY=(elbowY+handY)/2,forearmZ=(elbowZ+handZ)/2;
+   part((elbowX+handX)/2,forearmY,forearmZ,.22,.28,.27,'ef8650',Math.atan2(handZ-elbowZ,elbowY-handY));
    part(handX,handY,handZ,.19,.17,.23,'f3b282');
    if(holding){
     // The handle meets the palm. The silver poles open above the right knuckles.
-    const mx=handX+.31,my=handY+.18,mz=handZ-.13;
-    part(mx-.23,my-.16,mz,.23,.12,.16,'575452');
-    magnetParts((dx,dy,w,h,color)=>part(mx+dx*.86,my+dy*.86,mz,w*.86,h*.86,.19,color))
+    const mx=handX+.18,my=handY+.20,mz=handZ-.21;
+    part(handX+.07,handY,mz+.08,.26,.14,.20,'ac3640');
+    magnetParts((dx,dy,w,h,color)=>part(mx+dx*.86,my+dy*.86,mz-dx*.24,w*.86,h*.86,.19,color))
    }
 
   }
@@ -368,7 +381,11 @@ function createWorld(canvas) {
   if(menu){cat(-.93,.55,t);wc(mobile?1.70:2.25,3.85);token(-1.3,1.8,t)}
   else{
    for(const f of flows){
-    if(f.front===null||f.passed)continue;
+    if(f.passed)continue;
+    if(f.front===null){
+     if(f.warned&&!flight)for(let n=2;n<19;n+=3)box(f.a,.034,n,1.28,.027,.24,'e78a46');
+     continue
+    }
     const front=f.front-d;
     for(let n=0;n<=f.size;n+=1.5){
      const wobble=Math.sin(t*6+n)*.06,crest=n<2?1.38:.93;

@@ -29,16 +29,37 @@ function chooseRoute(index){
 function prepareRoute(){
  const starts=level?Array.from({length:15},(_,i)=>36+116*i):[56,130,201,273];
  trains=starts.flatMap((z,i)=>trainGroup(z,[1,-1,0,1,0,-1][i%6],i%2?-1:1));
- // Moving fronts cross in dedicated clear stretches between the stationary cars.
- flows=level?Array.from({length:15},(_,i)=>({trigger:71+116*i,a:[0,-2.2,2.2,-2.2,0,2.2,0][i%7],size:12+3*(i%3),front:null,passed:false})):
- [{trigger:221,a:-2.2,size:12,front:null,passed:false}];
+ // Meet each wave in a road gap; its whole visible path uses a clear lane.
+ const targets=level?starts.flatMap(z=>[z+64,z+90]):[30,121,193,264,341];
+ flows=targets.map((target,i)=>planFlow(target,trains,i)).filter(Boolean);
  warning='';firstNearby=0;
+}
+function planFlow(target,cars,index){
+ const pace=level===2?13+Math.min(10,target/100):13+8*target/length;
+ const incoming=level?11:8;
+ const trigger=Math.max(0,target-40*pace/(pace+incoming));
+ let travelTime=0;
+ for(let z=trigger;z<target;z+=.25){
+  const step=Math.min(.25,target-z);
+  const speedAt=level===2?13+Math.min(10,z/100):13+8*z/length;
+  travelTime+=step/speedAt
+ }
+ const frontOffset=target-trigger+incoming*travelTime;
+ const spawn=trigger+frontOffset;
+ const lanes=[-2.2,0,2.2].filter(a=>!cars.some(c=>c.a===a&&c.z<spawn+8&&trainEnd(c)>target-20));
+ if(!lanes.length)return null;
+ return {trigger,a:lanes[index%lanes.length],frontOffset,size:6,front:null,passed:false}
 }
 function updateFlows(dt){
  warning='';
  for(const f of flows){
-  if(f.passed||distance<f.trigger)continue;
-  if(f.front===null){f.front=distance+63;soundscape.effect('alarm')}
+  if(f.passed||distance<f.trigger-18)continue;
+  if(!f.warned){f.warned=true;soundscape.effect('alarm')}
+  if(distance<f.trigger){
+   if(!flight&&!warning)warning='Поток '+(f.a<0?'слева':f.a>0?'справа':'по центру')+'!';
+   continue
+  }
+  if(f.front===null)f.front=distance+(f.frontOffset??63);
   f.front-=dt*(level?11:8);
   const lead=f.front-distance;
   if(lead+f.size < -rearMargin){f.passed=true;continue}
@@ -46,7 +67,7 @@ function updateFlows(dt){
    f.hit=true;
    if(!absorbHit('Накрыл встречный поток'))return false;
   }
-  if(!flight&&!f.hit&&lead<62&&lead+f.size>0)warning='Поток '+(f.a<0?'слева':f.a>0?'справа':'по центру')+'!';
+  if(!flight&&!warning&&!f.hit&&lead<62&&lead+f.size>0)warning='Поток '+(f.a<0?'слева':f.a>0?'справа':'по центру')+'!';
  }
  return true
 }
