@@ -169,7 +169,7 @@ function status(){
  $('distance').textContent=(marathon()?Math.floor(distance):Math.max(0,Math.ceil(length-distance)))+' м';$('count').textContent=coins;
  $('mission').textContent=missionDone?'✓ Чистые 250 м · +25':'Без удара '+Math.min(cleanGoal,Math.floor(distance-cleanStart))+'/'+cleanGoal+' м';
  const word=activeWord();$('wordLabel').textContent=marathon()&&!word?'СЛЕДУЮЩЕЕ СЛОВО':'СОБЕРИ СЛОВО';$('word').innerHTML=word?'<b>'+word.slice(0,collected())+'</b><i>'+word.slice(collected())+'</i>':marathon()?((wordKm+1)+' км'):'✓ '+words.length+'/'+words.length;
- $('best').textContent=marathon()?profile.meters+' м':best;$('mute').textContent=mute?'♩':'♫';$('mute').setAttribute('aria-label',mute?'Включить звук':'Выключить звук')
+ $('best').textContent=marathon()?profile.meters+' м':best;$('mute').textContent=mute?'🔇':'🔊';$('mute').setAttribute('aria-label',mute?'Включить звук':'Выключить звук');$('mute').setAttribute('aria-pressed',String(!mute));$('mute').title=mute?'Звук выключен — включить':'Звук включён — выключить'
 }
 function notice(s){$('toast').textContent=s;noticeUntil=elapsed+1.45}
 function ui(){
@@ -194,6 +194,7 @@ function refreshSummary(){
 }
 function revive(){
  if(state!=='lost'||revived||profile.wallet<revivePrice)return;
+ try{soundscape.init()}catch{}
  profile.wallet-=revivePrice;saveProfile();revived=true;settled=false;cleanStart=distance;
  grace=2.4;warning='';state='run';ui();notice('Продолжение · защита на 2 с')
 }
@@ -276,14 +277,14 @@ let prev=0;
 function frame(ms){const dt=Math.min(.07,(ms-(prev||ms))/1000);prev=ms;clock+=dt;
  if(state==='run'||state==='finish'){let rest=dt;while(rest>0&&(state==='run'||state==='finish')){const step=Math.min(rest,1/120);tick(step);rest-=step}status()}
  render3D();requestAnimationFrame(frame)}
-$('start').onclick=start;$('action').onclick=()=>{if(state==='pause'){state='run';ui()}else {if(state==='win'&&level===0)chooseRoute(1);start()}};$('pause').onclick=pause;$('home').onclick=()=>{state='menu';height=slide=0;ui()};
+$('start').onclick=start;$('action').onclick=()=>{if(state==='pause'){try{soundscape.init()}catch{}state='run';ui()}else {if(state==='win'&&level===0)chooseRoute(1);start()}};$('pause').onclick=pause;$('home').onclick=()=>{state='menu';height=slide=0;ui()};
 $('mute').onclick=()=>{mute=!mute;try{soundscape.init()}catch{}
  soundscape.sync(state==='run'||state==='finish',mute);try{localStorage.wcDashMuted=mute?'yes':'no'}catch{}status()};
 const keys={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',Space:'up',ArrowDown:'down',KeyA:'left',KeyD:'right',KeyW:'up',KeyS:'down'};
-addEventListener('keydown',e=>{if(e.repeat)return;if(e.code==='Escape'){if(state==='pause')$('action').click();else pause();return}
+addEventListener('keydown',e=>{if(e.repeat)return;try{soundscape.wake()}catch{}if(e.code==='Escape'){if(state==='pause')$('action').click();else pause();return}
  if(state==='run'&&keys[e.code]){e.preventDefault();move(keys[e.code])}});
 let pointer=null;
-canvas.addEventListener('pointerdown',e=>{if(state!=='run'||pointer)return;canvas.setPointerCapture(e.pointerId);pointer={id:e.pointerId,x:e.clientX,y:e.clientY}});
+canvas.addEventListener('pointerdown',e=>{try{soundscape.wake()}catch{}if(state!=='run'||pointer)return;canvas.setPointerCapture(e.pointerId);pointer={id:e.pointerId,x:e.clientX,y:e.clientY}});
 function swipe(e){if(!pointer||e.pointerId!==pointer.id)return;
  const dx=e.clientX-pointer.x,dy=e.clientY-pointer.y;if(Math.max(Math.abs(dx),Math.abs(dy))<17)return;
  move(Math.abs(dx)>Math.abs(dy)?dx<0?'left':'right':dy<0?'up':'down');pointer=null}

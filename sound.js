@@ -1,16 +1,19 @@
 // Eight-bar instrumental: warm electric keys, bass and brushed percussion.
 // Schedule on the audio clock so note timing is independent of frame rate.
 const soundscape=(()=>{
- let ctx,master,music,fx,noise,step=0,nextBeat=0,timer=null,walkingAt=0,running=false;
+ let ctx,master,music,fx,noise,step=0,nextBeat=0,timer=null,walkingAt=0,running=false,requestedPlaying=false,requestedMuted=false;
  const chords=[[50,57,60,65],[43,55,59,64],[48,55,59,64],[45,55,60,64]];
  const tune=[[69,67,64],[71,69,67],[67,64,62],[64,60,62],[69,72,76],[74,71,69],[67,71,69],[67,64,62]];
  function init(){
-  if(!ctx){
+  if(!ctx||ctx.state==='closed'){
    ctx=new (window.AudioContext||window.webkitAudioContext)();master=ctx.createGain();music=ctx.createGain();fx=ctx.createGain();
    master.gain.value=.65;music.gain.value=.56;fx.gain.value=.50;music.connect(master);fx.connect(master);master.connect(ctx.destination);
    noise=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*.45),ctx.sampleRate);const data=noise.getChannelData(0);for(let i=0;i<data.length;i++)data[i]=Math.random()*2-1;
   }
-  ctx.resume().catch(()=>{})
+  // Safari may resume asynchronously, or interrupt an already unlocked context.
+  // Reconcile after either transition so the scheduler follows the audio clock.
+  ctx.onstatechange=()=>sync(requestedPlaying,requestedMuted);
+  return ctx.resume().then(()=>sync(requestedPlaying,requestedMuted)).catch(()=>{})
  }
  function note(bus,at,freq,dur,amp,type='sine',end=freq,attack=.014){
   const osc=ctx.createOscillator(),env=ctx.createGain();osc.type=type;osc.frequency.setValueAtTime(freq,at);osc.frequency.exponentialRampToValueAtTime(end,at+dur);
@@ -38,11 +41,17 @@ const soundscape=(()=>{
   }
  }
  function sync(playing,muted){
-  if(!ctx)return;master.gain.setTargetAtTime(muted?0:.65,ctx.currentTime,.016);
-  const on=playing&&!muted;if(on===running)return;running=on;
+  requestedPlaying=playing;requestedMuted=muted;
+  if(!ctx||ctx.state==='closed')return;
+  master.gain.setTargetAtTime(muted?0:.65,ctx.currentTime,.016);
+  const on=playing&&!muted&&ctx.state==='running';
   music.gain.setTargetAtTime(on?.56:0,ctx.currentTime,.04);
-  if(on){nextBeat=ctx.currentTime+.025;walkingAt=ctx.currentTime+.25;schedule();timer=setInterval(schedule,60)}
-  else {clearInterval(timer);timer=null}
+  if(on===running)return;
+  running=on;clearInterval(timer);timer=null;
+  if(on){
+   nextBeat=ctx.currentTime+.025;walkingAt=ctx.currentTime+.25;
+   schedule();timer=setInterval(schedule,60)
+  }
  }
  function effect(name){
   if(!ctx||mute||ctx.state!=='running')return;const t=ctx.currentTime;
@@ -61,5 +70,8 @@ const soundscape=(()=>{
    case 'hit':note(fx,t,130,.22,.23,'triangle',48);brush(fx,t,.12,.11,860);break;
   }
  }
- return {init,sync,effect};
+ function wake(){
+  if(ctx&&ctx.state!=='running'&&requestedPlaying&&!requestedMuted)return init()
+ }
+ return {init,sync,effect,wake};
 })();
