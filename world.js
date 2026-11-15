@@ -66,9 +66,7 @@ function createWorld(canvas) {
  }
  const puck=lathe([[0,-.5],[.5,-.5],[.5,.5],[0,.5]],12);
  const bowl=lathe([[0,0],[.25,.035],[.34,.2],[.49,.75],[.50,.88],[.46,1],[.38,.98],[.34,.72],[.15,.40],[0,.39]],20);
- // Two softly lit, hollow contours form the shield without obscuring the runner.
- const halo=lathe([[.49,-.017],[.50,0],[.49,.017],[.479,0],[.49,-.017]],36);
- const shapes=[cube,puck,bowl,halo],colors=new Map();
+ const shapes=[cube,puck,bowl],colors=new Map();
  function put(sh,a,b,z,sx,sy,sz,col,ry=0,rx=0,roll=0){
   if(!colors.has(col)){const v=parseInt(col,16);colors.set(col,[(v>>16)/255,((v>>8)&255)/255,(v&255)/255])}
   let k=sh.used*15;if(k+15>sh.data.length){let next=new Float32Array(sh.data.length*2);next.set(sh.data);sh.data=next}
@@ -79,7 +77,7 @@ function createWorld(canvas) {
  function glyph(ch,a,b,z,p,color,ry=0){const rows=font[ch];if(!rows)return;rows.forEach((row,j)=>[...row].forEach((v,i)=>{if(v==='1'){const dx=(i-(row.length-1)/2)*p;box(a+dx*Math.cos(ry),b+(2-j)*p,z-dx*Math.sin(ry),p*.98,p*.98,p*.36,color,ry)}}))}
  function person(a,b,z,angle,t,jump,idle){
   const modelScale=idle?1:.83;
-  const sn=Math.sin(angle),cs=Math.cos(angle),phase=t*(idle?2:11.2);
+  const sn=Math.sin(angle),cs=Math.cos(angle),phase=idle?t*2:runCycle;
   const closing=state==='finish'||state==='win';
   const sit=closing?ease((toiletTime-1.28)/.70):0;
   // Pivot clear of the front rim. Lift the thighs before backing onto the seat.
@@ -92,7 +90,8 @@ function createWorld(canvas) {
   const ascent=airborne?clamp(velocity/8.8,0,1):0;
   const curl=airborne?(1-ease(Math.abs(velocity)/8.8))*(1-tuck):0;
   const falling=airborne&&velocity<0?ease(-velocity/7):0;
-  const stride=idle?.055:airborne?.08:1.0;
+  const gait=clamp((speed()-13)/(marathon()?10:8),0,1);
+  const stride=idle?.055:airborne?.08:.30+.70*gait;
   const bob=(idle?.024*Math.sin(phase):.067*Math.abs(Math.cos(phase)))*(1-tuck)*(1-hover)*(airborne?0:1);
   // Rotate the upper body around the hips; keep the boot soles on the floor.
   function part(i,j,k,w,h,d,c,tilt=0,leg=false){
@@ -206,6 +205,25 @@ function createWorld(canvas) {
   for(const k of [-1,1]){box(a+.14*k,.84,z-.14,.11,.15,.14,'af7241');box(a+.10*k,.65,z-.345,.045,.064,.03,'32483a');box(a+.13*k,.10,z-.17,.13,.17,.15,'f6d8a2')}
   box(a,.53,z-.35,.17,.09,.03,'f6d8a2');box(a+.16,.54,z+.33,.12,.54,.14,'cb8747',0,.26+.12*Math.sin(t*2))
  }
+ function denisCat(a,b,z,t){
+  const step=Math.sin(runCycle)*.10;
+  for(let i=0;i<9;i++){
+   const u=(t*2.2+i/9)%1,side=Math.sin(i*4.1);
+   const size=.10*(1-u)+.025;
+   round(a+side*(.20+.25*u),b+.06+u*.08,z-.48-u*1.5,size,.07,size*1.3,i%2?'9b643c':'c89561')
+  }
+  box(a,b+.22,z,.84,.22,1.20,'e3c7a8');
+  box(a,b+.36,z+.03,.61,.27,.78,'eedbc3');
+  box(a,b+.46,z+.42,.50,.39,.34,'f4e5d3');
+  for(const side of [-1,1]){
+   box(a+side*.18,b+.69,z+.42,.13,.22,.14,'e9cdae',0,0,side*.15);
+   box(a+side*.20,b+.13,z-.30+side*step,.17,.20,.30,'f7ead8');
+   box(a+side*.20,b+.14,z+.27-side*step,.17,.19,.28,'f7ead8');
+   box(a+side*.12,b+.50,z+.595,.055,.055,.025,'687358')
+  }
+  box(a,b+.47,z+.615,.08,.05,.03,'c98280');
+  box(a,b+.39,z-.65,.22,.20,.55,'ead3b8',0,.35+.12*Math.sin(t*5))
+ }
  function elevator(side,z){
   const a=side*4.02;
   box(a,1.84,z,.25,3.63,2.89,'394e55');
@@ -299,25 +317,6 @@ function createWorld(canvas) {
   }else{
    box(a,y,z,.70,.52,.17,'389cab',turn);box(a,y-.29,z,.43,.18,.16,'3598a7',turn);
    box(a,y+.02,z-.11,.10,.37,.04,'e5ffcd');box(a,y+.02,z-.11,.32,.10,.04,'e5ffcd')
-  }
- }
- function shieldField(t){
-  const age=t-shieldBreakAt,breaking=!shield&&age>=0&&age<.54;
-  if(!shield&&!breaking)return;
-  const burst=breaking?age/.54:0,grow=shield?1+.15*(1-ease((t-shieldAt)/.32)):1;
-  const radius=(1.02+.025*Math.sin(t*3.8))*grow;
-  if(!breaking||burst<.30){
-   const diameter=2*radius*(1+burst*.72);
-   put(halo,x,height+1.05,0,diameter,.96,diameter*1.09,'4ad4de',.17*Math.sin(t*1.8),1.39);
-   put(halo,x,height+1.05,0,diameter*.95,.80,diameter*.93,'b9fff0',.34,.23+.09*Math.sin(t*2.2))
-  }
-  if(breaking){
-   for(let j=0;j<12;j++){
-    const angle=j*2.40,dy=1-2*(j+.5)/12,ring=Math.sqrt(1-dy*dy),r=radius*(1+1.45*burst);
-    const size=.19*(1-.85*burst);
-    box(x+Math.cos(angle)*ring*r,height+1.05+dy*r-.35*burst*burst,Math.sin(angle)*ring*r,
-     size,.27*(1-.8*burst),size*.56,j%2?'76eff0':'c8ffed',angle+burst*3,.5+burst*4,.3)
-   }
   }
  }
  function jetTrail(t){
@@ -420,7 +419,7 @@ function createWorld(canvas) {
     if(front>1)for(let n=2;n<Math.min(18,front);n+=3)box(f.a,.03,n,1.28,.024,.24,'e78a46');
    }
    for(const train of trains)carriage(train,d);
-   if(!closing)shieldField(t);
+   if(!closing&&catTime>0)denisCat(x,height,-.2,t);
    if(flight)jetTrail(t);
    if(length-d<66)wc(0,length-d+1.65);
    for(let idx=firstNearby;idx<items.length&&items[idx].z<d+61;idx++){const it=items[idx],z=it.z-d,a=it.a;

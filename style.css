@@ -27,3 +27,16 @@ h1{font:900 clamp(44px,6.2vw,96px)/.88 'Arial Black','Helvetica Neue',system-ui,
 #routes{flex-wrap:wrap}.shopLink{border:0;background:transparent;color:#265849;font-weight:750;text-decoration:underline;padding:8px}#store{width:min(92vw,430px);color:#243d36;background:#fff3d9;border:3px solid #285747;border-radius:9px;padding:16px;max-height:86dvh}#store::backdrop{background:#122b29aa}#store header{display:flex;padding:0 0 10px;background:none;color:inherit;gap:10px;height:auto}#store h2{font-size:23px;margin:0 auto 0 0}#store button{background:#235849;color:#fff3d9;border:0;border-radius:4px;padding:6px 10px}#upgrades section{padding:12px 0;border-top:1px solid #adae93}#upgrades p{font-size:13px;margin:4px 0 7px}#upgrades button:disabled{background:#d4d7bc;color:#48584d}
 
 #hud{padding-bottom:33px}#hud #mission{position:absolute;bottom:13px;left:14px;color:#d0e6c3;font-size:10px;letter-spacing:.3px}#resultExtras{margin:6px 0 15px}#resultExtras button{padding:7px 9px;margin:3px;background:#d8e7bc;border:1px solid #78947c;color:#204b40;border-radius:4px;font-weight:700}#resultExtras button:disabled{opacity:.45}#nextUpgrade{font-size:13px;margin:5px 0}#powers{top:96px}
+
+.menuActions{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+.menuActions button{border:1px solid #bad4a3;border-radius:9px;background:#e2eec9;color:#194c42;padding:10px 13px;font-weight:800;text-decoration:none;box-shadow:0 3px 0 #afc89c}
+.menuActions .shopLink{background:#f5d8a2;border-color:#e1bd82}
+#settings{width:min(90vw,390px);padding:20px;background:#fff3d9;color:#21433a;border:2px solid #58836b;border-radius:12px}
+#settings::backdrop{background:#102b2baa}
+#settings header{height:auto;padding:0;background:none;color:inherit;border:0}
+#settings h2{font-size:24px;margin:0 auto 16px 0}
+#settings header button{background:#275847;color:white;border:0;border-radius:5px}
+#settings label{display:block;margin-top:14px;font-weight:750}
+#settings input{display:block;width:100%;accent-color:#236b59;margin-top:8px}
+#settings p{font-size:13px;color:#4d685e}
+#pauseSettings{display:block;margin:12px auto;color:#25483d;border:1px solid #95b39e;background:#e2eec9;border-radius:5px;padding:7px 12px}

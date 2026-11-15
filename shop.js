@@ -1,6 +1,6 @@
 // Wallet and purchased upgrades are saved together under a single key.
 const shopKey='wcDashProgress5';
-const profile={wallet:0,magnet:0,shield:0,double:0,meters:0,first:false,second:false};
+const profile={wallet:0,magnet:0,shield:0,double:0,meters:0,first:false,second:false,cats:0,cat:0};
 try{Object.assign(profile,JSON.parse(localStorage.getItem(shopKey)))}catch{}
 // Transfer previously bought multiplier tiers to the replacement equipment once.
 if(profile.boots===undefined){profile.boots=profile.double||0;saveProfile()}
@@ -13,12 +13,18 @@ function nextUpgrade(){
 }
 const goods=[
  {id:'magnet',name:'Магнит',describe:n=>'Притягивает монеты '+(6+2*n)+' с'},
- {id:'shield',name:'Щит',describe:n=>'После удара защищает '+(1.2+.6*n).toFixed(1)+' с'},
+ {id:'cat',name:'Кот Дениса',describe:n=>'Длительность '+(30+5*n)+' с'},
  {id:'boots',name:'Прыгучие ботинки',describe:n=>'Высокий прыжок на '+(7+n*2)+' с'}
 ];
 function saveProfile(){try{localStorage.setItem(shopKey,JSON.stringify(profile))}catch{}}
 function showShop(){
  const list=$('upgrades');list.replaceChildren();$('wallet').textContent=profile.wallet+' 💩';
+ const catRow=document.createElement('section');
+ const catTitle=document.createElement('strong'),catDesc=document.createElement('p'),catBuy=document.createElement('button');
+ catTitle.textContent='Кот Дениса · '+profile.cats+' шт.';catDesc.textContent='Один вызов спасает от столкновения';
+ catBuy.textContent='Купить кота · 200 💩';catBuy.disabled=profile.wallet<200;
+ catBuy.onclick=()=>{if(profile.wallet<200)return;profile.wallet-=200;profile.cats++;saveProfile();showShop();refreshSummary()};
+ catRow.append(catTitle,catDesc,catBuy);list.append(catRow);
  for(const g of goods){
   const n=profile[g.id],row=document.createElement('section'),title=document.createElement('strong'),desc=document.createElement('p'),buy=document.createElement('button');
   title.textContent=g.name+' · '+n+'/'+tiers.length;desc.textContent=g.describe(n)+(n<tiers.length?' → '+g.describe(n+1):'');

@@ -31,14 +31,14 @@ function extendDistricts(){
   let road=lateral();
   for(let n=4;n<span-2;n+=2){
    if(n%16===4)road=lateral();
-   const z=start+n,trail=railTrail(group,z),gate=Math.abs(n-24)<7;
-   const y=trail?.y??(gate?(gateType==='crate'?.65+1.35*Math.max(0,1-((n-24)/6)**2):.35):.65);
+   const z=start+n,trail=railTrail(group,z),gate=districtNumber%4!==3&&Math.abs(n-24)<speedAt(start+24)*.45;
+   const y=trail?.y??(gate?(gateType==='crate'?.65+1.35*Math.max(0,1-((n-24)/(speedAt(start+24)*.44))**2):.35):.65);
    const a=trail?.a??(gate?gateLane:road);
    items.push({type:'poo',z,a,y});
    if(n%18===4&&z+.8>=1000)items.push({type:'letter',z:z+.8,a,y:railFloor(group,z+.8,a)})
   }
-  items.push({type:['shield','magnet','boots'][Math.floor(randomRoute()*3)],z:start+11,a:0,y:0});
-  if(districtNumber%2===0)items.push({type:'laxative',z:start+106,a:0,y:0});
+  if(districtNumber%3===0)items.push({type:districtNumber%2?'boots':'magnet',z:start+11,a:0,y:0});
+  if(districtNumber%6===0)items.push({type:'laxative',z:start+106,a:0,y:0});
   nextDistrict+=span;districtNumber++
  }
  items.sort((a,b)=>a.z-b.z)
