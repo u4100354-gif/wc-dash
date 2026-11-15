@@ -31,8 +31,8 @@ function extendDistricts(){
   let road=lateral();
   for(let n=4;n<span-2;n+=2){
    if(n%16===4)road=lateral();
-   const z=start+n,trail=railTrail(group,z),gate=districtNumber%4!==3&&Math.abs(n-24)<speedAt(start+24)*.45;
-   const y=trail?.y??(gate?(gateType==='crate'?.65+1.35*Math.max(0,1-((n-24)/(speedAt(start+24)*.44))**2):.35):.65);
+   const z=start+n,trail=railTrail(group,z),gate=districtNumber%4!==3&&Math.abs(n-24)<speedAt(start+24)*jumpHalfTime;
+   const y=trail?.y??(gate?(gateType==='crate'?.65+jumpApex*Math.max(0,1-((n-24)/(speedAt(start+24)*jumpHalfTime))**2):.35):.65);
    const a=trail?.a??(gate?gateLane:road);
    items.push({type:'poo',z,a,y});
    if(n%18===4&&z+.8>=1000)items.push({type:'letter',z:z+.8,a,y:railFloor(group,z+.8,a)})

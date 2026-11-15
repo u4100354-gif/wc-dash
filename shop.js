@@ -18,10 +18,10 @@ const goods=[
 ];
 function saveProfile(){try{localStorage.setItem(shopKey,JSON.stringify(profile))}catch{}}
 function showShop(){
- const list=$('upgrades');list.replaceChildren();$('wallet').textContent=profile.wallet+' 💩';
+ $('menuCats').textContent=profile.cats;const list=$('upgrades');list.replaceChildren();$('wallet').textContent=profile.wallet+' 💩';
  const catRow=document.createElement('section');
  const catTitle=document.createElement('strong'),catDesc=document.createElement('p'),catBuy=document.createElement('button');
- catTitle.textContent='Кот Дениса · '+profile.cats+' шт.';catDesc.textContent='Один вызов спасает от столкновения';
+ catTitle.textContent='Кот Дениса · '+profile.cats+' шт.';catDesc.textContent='Пушистый скейт на '+(30+5*profile.cat)+' с. Спасает от одного удара. Вызов: кнопка кота, C или двойной тап';
  catBuy.textContent='Купить кота · 200 💩';catBuy.disabled=profile.wallet<200;
  catBuy.onclick=()=>{if(profile.wallet<200)return;profile.wallet-=200;profile.cats++;saveProfile();showShop();refreshSummary()};
  catRow.append(catTitle,catDesc,catBuy);list.append(catRow);
