@@ -56,18 +56,18 @@ function updateFlows(dt){
   if(f.passed||distance<f.trigger-18)continue;
   if(!f.warned){f.warned=true;soundscape.effect('alarm')}
   if(distance<f.trigger){
-   if(!flight&&!warning)warning='Поток '+(f.a<0?'слева':f.a>0?'справа':'по центру')+'!';
+   if(!flight&&!warning)warning=(f.required?'Прыгай на поток · ':'Поток ')+(f.a<0?'слева':f.a>0?'справа':'по центру')+'!';
    continue
   }
   if(f.front===null)f.front=distance+(f.frontOffset??63);
   f.front-=dt*(level?11:8);
   const lead=f.front-distance;
   if(lead+f.size < -rearMargin){f.passed=true;continue}
-  if(!flight&&!f.hit&&Math.abs(f.a-x)<1.13&&lead<=.48&&lead+f.size>=-.55){
+  if(!flight&&!f.hit&&height<1.48&&Math.abs(f.a-x)<1.13&&lead<=.48&&lead+f.size>=-.55){
    f.hit=true;
    if(!absorbHit('Накрыл встречный поток'))return false;
   }
-  if(!flight&&!warning&&!f.hit&&lead<62&&lead+f.size>0)warning='Поток '+(f.a<0?'слева':f.a>0?'справа':'по центру')+'!';
+  if(!flight&&!warning&&!f.hit&&lead<62&&lead+f.size>0)warning=(f.required?'Прыгай на поток · ':'Поток ')+(f.a<0?'слева':f.a>0?'справа':'по центру')+'!';
  }
  return true
 }
@@ -75,12 +75,13 @@ let ground=0,cameraLift=0,magnet=0,shield=false,grace=0,finishFrom=0;
 let shieldAt=-10,shieldBreakAt=-10,flight=null;
 const grounded=()=>height<=ground+.015;
 const speed=()=>marathon()?13+Math.min(10,distance/100):13+8*distance/length;
-const isBarrier=type=>type==='crate'||type==='bar'||type==='hurdle';
+const isBarrier=type=>type==='crate'||type==='bar'||type==='hurdle'||type==='wall';
 // Physics and both renderers share the actual clearance of each obstacle.
 const hurdleBottom=1.08,hurdleTop=1.32,slideHeight=1.04;
 function hitsBarrier(item){
  const bottom=height-item.y;
  switch(item.type){
+  case 'wall':return bottom<5;
   case 'crate':return bottom<.85;
   case 'bar':return bottom<2.03&&bottom+(slide>0?slideHeight:1.93)>1.39;
   case 'hurdle':return bottom<hurdleTop&&bottom+(slide>0?slideHeight:1.93)>hurdleBottom;
@@ -117,6 +118,15 @@ function course(){
  // Each pattern has an optional challenge lane and two passing lanes.
  const challenges=level?Array.from({length:15},(_,i)=>[[14+i*116,(i%3)-1,i%2?'hurdle':'crate'],[27+i*116,((i+1)%3)-1,i%2?'bar':'hurdle']]).flat():[[22,0,'crate'],[43,-1,'hurdle'],[118,1,'bar'],[192,-1,'crate'],[263,0,'hurdle'],[341,0,'bar']];
  for(const [z,lane,type] of challenges)add(type,z,lane*2.2);
+ // Walls on the outer routes guide the player towards the incoming stream.
+ const requiredTargets=level?[100]:[193];
+ for(const meeting of requiredTargets){
+  const wave=flows.filter(f=>f.trigger<meeting&&meeting-f.trigger<30).at(-1);
+  if(!wave)continue;
+  wave.required=true;
+  for(const side of [-2.2,0,2.2])if(side!==wave.a)add('wall',meeting,side)
+ }
+
  for(let z=5;z<length-9;z+=2){
   const near=challenges.find(([at])=>Math.abs(at-z)<=8);
   const trail=railTrail(trains,z);
@@ -204,7 +214,7 @@ function move(action){
  if(state!=='run')return;
  if(action==='left'||action==='right'){lane=clamp(lane+(action==='left'?-1:1),-1,1);return}
  if(flight)return;
- if(action==='up'&&grounded()){slide=0;velocity=bootsTime>0?10.2:8.8;soundscape.effect('jump')}
+ if(action==='up'&&grounded()){slide=0;velocity=bootsTime>0?11.8:9.4;soundscape.effect('jump')}
  if(action==='down'){soundscape.effect('slide');slide=.80;if(!grounded())velocity=-12}
 }
 function tick(dt){
@@ -214,7 +224,12 @@ function tick(dt){
  distance=Math.min(length,distance+dt*speed());x+=(lane*2.2-x)*(1-Math.exp(-15*dt));slide=Math.max(0,slide-dt);
  bootsTime=Math.max(0,bootsTime-dt);magnet=Math.max(0,magnet-dt);grace=Math.max(0,grace-dt);
  const wasGrounded=grounded()&&velocity<=0;
- const support=railFloor(trains,distance,x);
+ let support=railFloor(trains,distance,x);
+ for(const f of flows){
+  if(f.front===null||f.passed||Math.abs(f.a-x)>1.0)continue;
+  const along=distance-f.front;
+  if(along>=0&&along<=f.size&&height>=1.42&&velocity<=0)support=Math.max(support,1.48);
+ }
  if(!flight&&support>height+.14&&!absorbHit())return;
  if(!flight&&wasGrounded&&Math.abs(ground-support)<.22)height=support;
  ground=support;

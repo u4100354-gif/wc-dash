@@ -92,7 +92,7 @@ function createWorld(canvas) {
   const ascent=airborne?clamp(velocity/8.8,0,1):0;
   const curl=airborne?(1-ease(Math.abs(velocity)/8.8))*(1-tuck):0;
   const falling=airborne&&velocity<0?ease(-velocity/7):0;
-  const stride=idle?.055:airborne?.08:.86;
+  const stride=idle?.055:airborne?.08:1.0;
   const bob=(idle?.024*Math.sin(phase):.067*Math.abs(Math.cos(phase)))*(1-tuck)*(1-hover)*(airborne?0:1);
   // Rotate the upper body around the hips; keep the boot soles on the floor.
   function part(i,j,k,w,h,d,c,tilt=0,leg=false){
@@ -434,6 +434,9 @@ function createWorld(canvas) {
     }else if(!isBarrier(it.type))powerModel(it,z,t);
     else if(it.type==='crate'){
      box(a,.43,z,1.42,.85,1.08,'ca925d');box(a,.862,z,.23,.025,1.09,'eed099');box(a,.45,z-.55,.23,.83,.024,'e6be88');box(a-.37,.26,z-.558,.27,.22,.026,'fae4bf')
+    }else if(it.type==='wall'){
+     box(a,2.5,z,2.0,5,.32,'b3835a');
+     box(a,2.5,z-.17,1.7,3.8,.04,'e3b979');
     }else if(it.type==='hurdle'){
      const middle=(hurdleBottom+hurdleTop)/2;
      for(const side of [-1,1]){
