@@ -104,6 +104,23 @@ function createWorld(canvas) {
    const seatedHeight=sit*(seatedHip/modelScale-.84);
    box(a+(localX*cs+depth*sn)*modelScale,b+(localY-lift+bob*(1-sit)+(!leg?seatedHeight:0))*modelScale,z+(depth*cs-localX*sn)*modelScale,w*modelScale,h*modelScale,d*modelScale,c,angle,tilt-fold*.51,lean)
   }
+  // Arm joints use the same centre transformation as the jacket.
+  // Building segments between transformed endpoints keeps them joined through the slide shear.
+  function torsoPoint(i,j,k){
+   const lean=bank+tuck*.22,pivot=Math.max(0,j-.67);
+   const xx=i*Math.cos(lean)-pivot*Math.sin(lean);
+   const yy=j-(1-Math.cos(lean))*pivot+i*Math.sin(lean);
+   const zz=k-tuck*pivot*.53;
+   return [a+(xx*cs+zz*sn)*modelScale,
+    b+(yy-recoil*.21-tuck*.64+bob*(1-sit)+sit*(seatedHip/modelScale-.84))*modelScale,
+    z+(zz*cs-xx*sn)*modelScale];
+  }
+  function armSegment(from,to,width,color){
+   const dx=from[0]-to[0],dy=from[1]-to[1],dz=from[2]-to[2];
+   box((from[0]+to[0])/2,(from[1]+to[1])/2,(from[2]+to[2])/2,
+    width*modelScale,Math.hypot(dx,dy,dz)+.07*modelScale,width*modelScale,color,
+    Math.atan2(dx,dz),Math.atan2(Math.hypot(dx,dz),dy));
+  }
   for(const s of [-1,1]){
    const step=Math.sin(phase)*stride*s*(1-sit),lead=s===1?1:-.52;
    const knee=.53-recoil*.13-tuck*.19;
@@ -135,19 +152,25 @@ function createWorld(canvas) {
    const holding=!idle&&!closing&&magnet>0&&s===1;
    const reach=tuck*(s===1?.40:-.24)+sit*.34+(holding?.22:0)+ascent*.18+curl*.18;
    const armSpread=.15*hover+(holding?.23:0)+curl*.18,armStep=holding?step*.28:step;
-   const armX=s*(.46+.13*tuck+armSpread*.5),elbowX=s*(.47+.20*tuck+armSpread);
-   const elbowY=1.09+salute*.42+(holding?.12:0)+curl*.10;
-   const elbowZ=-armStep*.28+.05+reach+salute*.16-curl*.19;
-   const handX=s*(.47+.21*tuck+armSpread),handY=elbowY-.16,handZ=elbowZ+.045;
-   part(armX,1.32,-armStep*.16+reach*.3,.23,.46,.30,'df6033',-armStep*.55+reach);
-   const forearmY=(elbowY+handY)/2,forearmZ=(elbowZ+handZ)/2;
-   part((elbowX+handX)/2,forearmY,forearmZ,.22,.28,.27,'ef8650',Math.atan2(handZ-elbowZ,elbowY-handY));
-   part(handX,handY,handZ,.19,.17,.23,'f3b282');
+   const shoulderX=s*.365,shoulderY=1.43,shoulderZ=.015;
+   const elbowX=s*(.47+.12*tuck+armSpread*.68);
+   const elbowY=1.10+salute*.23+(holding?.09:0)+curl*.12;
+   const elbowZ=-armStep*.24+.05+reach*.60-curl*.13;
+   const handX=s*(.49+.16*tuck+armSpread),handY=elbowY-.21+salute*.31;
+   const handZ=elbowZ+.07+salute*.14;
+   const shoulder=torsoPoint(shoulderX,shoulderY,shoulderZ);
+   const elbow=torsoPoint(elbowX,elbowY,elbowZ),hand=torsoPoint(handX,handY,handZ);
+   armSegment(shoulder,elbow,.27,'df6033');
+   armSegment(elbow,hand,.23,'ef8650');
+   // A solid cuff overlaps both the forearm and the palm.
+   armSegment(hand,torsoPoint(handX,handY+.045,handZ-.015),.22,'f3b282');
    if(holding){
-    // The handle meets the palm. The silver poles open above the right knuckles.
-    const mx=handX+.18,my=handY+.20,mz=handZ-.21;
-    part(handX+.07,handY,mz+.08,.26,.14,.20,'ac3640');
-    magnetParts((dx,dy,w,h,color)=>part(mx+dx*.86,my+dy*.86,mz-dx*.24,w*.86,h*.86,.19,color))
+    // Clockwise quarter-turn about the grip: the silver poles point right.
+    const gripX=handX+.035,gripY=handY,gripZ=handZ-.13;
+    magnetParts((dx,dy,w,h,color)=>{
+     const point=torsoPoint(gripX+(dy+.24)*.86,gripY-dx*.86,gripZ);
+     box(...point,h*.86*modelScale,w*.86*modelScale,.19*modelScale,color,angle,0,bank+tuck*.22);
+    });
    }
 
   }
