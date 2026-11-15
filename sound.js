@@ -59,6 +59,8 @@ const soundscape=(()=>{
   if(!ctx||mute||ctx.state!=='running')return;const t=ctx.currentTime;
   switch(name){
    case 'step':if(t<walkingAt)return;walkingAt=t+(.48-.22*Math.max(0,Math.min(1,(speed()-13)/(marathon()?10:8))));brush(fx,t,.066,.042,670);break;
+   case 'stumble':brush(fx,t,.16,.09,880);note(fx,t,190,.17,.10,'triangle',110);break;
+   case 'key':note(fx,t,1046,.18,.09);note(fx,t+.07,1568,.24,.08);break;
    case 'jump':note(fx,t,180,.18,.12,'sine',390);break;
    case 'slide':brush(fx,t,.28,.11,1400,true);break;
    case 'coin':note(fx,t,680,.13,.10);note(fx,t+.055,1020,.16,.058);break;

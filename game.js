@@ -5,7 +5,7 @@ const routes=[{name:'Солнечный переход',meters:360},{name:'Бо�
 const ease=v=>{const t=Math.max(0,Math.min(1,v));return t*t*(3-2*t)};
 const words=['ЛИФТ','МАРС','УСПЕЛ'], clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
 let bootsTime=0,settled=false,paidCoins=0,revived=false,cleanStart=0,missionDone=false;
-let wordKm=0,kmWordDone=false;
+let wordKm=0,kmWordDone=false,runKeys=0,stumbleTime=0,stumbleCooldown=0;
 const revivePrice=40,cleanGoal=250,cleanReward=25;
 let best=0,mute=false;
 try{best=Number(localStorage.wcDashBest)||0;mute=localStorage.wcDashMuted==='yes'}catch{}
@@ -65,7 +65,9 @@ function updateFlows(dt){
   if(lead+f.size < -rearMargin){f.passed=true;continue}
   if(!flight&&!f.hit&&height<1.48&&Math.abs(f.a-x)<1.13&&lead<=.48&&lead+f.size>=-.55){
    f.hit=true;
-   if(!absorbHit('Накрыл встречный поток'))return false;
+   const edge=Math.abs(f.a-x)>.85;
+   if(!absorbHit('Накрыл встречный поток',edge))return false;
+   if(edge){const away=Math.sign(x-f.a)||1;lane=clamp(Math.round(f.a/2.2)+away,-1,1);x=f.a+away*1.20}
   }
   if(!flight&&!warning&&!f.hit&&lead<62&&lead+f.size>0)warning=(f.required?'Прыгай на поток · ':'Поток ')+(f.a<0?'слева':f.a>0?'справа':'по центру')+'!';
  }
@@ -75,16 +77,16 @@ let ground=0,cameraLift=0,magnet=0,grace=0,finishFrom=0;
 let flight=null,catTime=0,catCooldown=0;
 const grounded=()=>height<=ground+.015;
 const speedAt=z=>marathon()?13+Math.min(10,z/100):13+8*z/length;
-const speed=()=>speedAt(distance);
+const speed=()=>speedAt(distance)*(stumbleTime>0&&!flight?.72:1);
 const isBarrier=type=>type==='crate'||type==='bar'||type==='hurdle'||type==='wall';
 // Physics and both renderers share the actual clearance of each obstacle.
-const hurdleBottom=1.08,hurdleTop=1.32,slideHeight=1.04;
+const hurdleBottom=1.08,hurdleTop=1.32,slideHeight=1.04,barBottom=1.39,barTop=2.45;
 function hitsBarrier(item){
  const bottom=height-item.y;
  switch(item.type){
   case 'wall':return bottom<5;
   case 'crate':return bottom<.85;
-  case 'bar':return bottom<2.03&&bottom+(slide>0?slideHeight:1.93)>1.39;
+  case 'bar':return bottom<barTop&&bottom+(slide>0?slideHeight:1.93)>barBottom;
   case 'hurdle':return bottom<hurdleTop&&bottom+(slide>0?slideHeight:1.93)>hurdleBottom;
  }
  return false
@@ -105,7 +107,7 @@ function beginFlight(){
   airTrail.push({type:'poo',air:true,z:distance+dz,a:airLane*2.2,y:flightHeight+.68})
  }
  items.push(...airTrail);items.sort((a,b)=>a.z-b.z);
- notice('Слабительное! Свайпай за монетами');soundscape.effect('launch')
+ notice('Острые крылышки KFC! Свайпай за монетами');soundscape.effect('launch')
 }
 function advanceFlight(support){
  const rise=ease((distance-flight.start)/16),descent=ease((distance-flight.end+20)/20);
@@ -139,20 +141,27 @@ function course(){
    add('poo',z,l*2.2,y);continue}
   add('poo',z,[0,0,-2.2,0,2.2,2.2][Math.floor(z/9)%6],.65)
  }
- for(let i=0,z=10;z<length-10;z+=15,i++){
+ for(let i=0,z=10;z<length-10;z+=26,i++){
   const train=trains.find(v=>z>=v.z&&z<=trainEnd(v));
   add('letter',z,train?train.a:[0,-2.2,2.2,0][i%4],train?roofAt(train,z):0)
  }
  function gear(type,z,a){add(type,z,a,railFloor(trains,z,a))}
  for(const [type,z,a] of [['magnet',7,0],['magnet',238,-2.2]])gear(type,z,a);
  for(let z=54;z<length;z+=546)gear('boots',z,0);
- for(let z=level?106:119;z<length-155;z+=1044)gear('laxative',z,0);
+ for(let z=level?106:119;z<length-155;z+=1044)gear('wings',z,0);
  if(level)for(let i=3;i<14;i+=6)gear('magnet',i*116+4,2.2*([0,1,-1][i%3]));
+ for(let z=75;z<length-10;z+=120){
+  const trail=railTrail(trains,z);add('key',z,trail?.a??0,railFloor(trains,z,trail?.a??0))
+ }
  return list.sort((a,b)=>a.z-b.z)
 }
-function absorbHit(cause){
+function absorbHit(cause,light=false){
  if(grace>0)return true;
  cleanStart=distance;
+ if(light&&stumbleCooldown<=0){
+  stumbleTime=3;stumbleCooldown=10;grace=.35;
+  notice('Споткнулся · хромота на 3 с');soundscape.effect('stumble');return true
+ }
  if(!catTime){end(false,cause);return false}
  catTime=0;catCooldown=5;grace=1.5;scatter(x,height+1,distance,'f1d4a6');notice('Кот спас!');soundscape.effect('shield');return true
 }
@@ -176,11 +185,12 @@ function letterFor(it){
 function score(){return Math.floor(distance)+coins*10+completed*100}
 function status(){
  $('catButton').hidden=state!=='run';$('catStock').textContent=catTime>0?Math.ceil(catTime)+'с':profile.cats;
- $('catButton').disabled=catTime>0||catCooldown>0;$('catButton').dataset.active=String(catTime>0);
- $('catButtonTitle').textContent=catTime>0?'Кот на трассе':catCooldown>0?'Отдых '+Math.ceil(catCooldown)+' с':profile.cats?'Позвать кота':'Нет котов';
- $('catButtonHint').textContent=catTime>0?'Спасёт от одного удара':catCooldown>0?'Скоро можно снова':'C / двойной тап';
+ $('catButton').disabled=catTime>0||catCooldown>0||!!flight;$('catButton').dataset.active=String(catTime>0);
+ $('catButtonTitle').textContent=flight?'Кот на паузе':catTime>0?'Кот на трассе':catCooldown>0?'Отдых '+Math.ceil(catCooldown)+' с':profile.cats?'Позвать кота':'Нет котов';
+ $('catButtonHint').textContent=flight?'Бонусы ждут посадки':catTime>0?'Спасёт от одного удара':catCooldown>0?'Скоро можно снова':'C / двойной тап';
  $('menuCats').textContent=profile.cats;
- $('powers').textContent=[flight?'Полёт · '+Math.ceil(flight.end-distance)+' м':'',bootsTime>0?'Ботинки '+Math.ceil(bootsTime)+' с':'',catTime>0?'🐈 Кот '+Math.ceil(catTime)+' с':'',magnet>0?'∩ Магнит '+Math.ceil(magnet)+' с':''].filter(Boolean).join('  ·  ');
+ $('skinBalance').textContent=profile.keys;$('keyBadge').hidden=state!=='run';$('keyTotal').textContent=profile.keys;
+ $('powers').textContent=[flight?'🍗 Крылышки · '+Math.ceil(flight.end-distance)+' м · бонусы на паузе':'',stumbleTime>0?'Хромота '+Math.ceil(stumbleTime)+' с':stumbleCooldown>0?'Лёгкий удар через '+Math.ceil(stumbleCooldown)+' с':'',bootsTime>0?'Ботинки '+Math.ceil(bootsTime)+' с':'',catTime>0?'🐈 Кот '+Math.ceil(catTime)+' с':'',magnet>0?'∩ Магнит '+Math.ceil(magnet)+' с':''].filter(Boolean).join('  ·  ');
  const section=marathon()?biomeAt(distance):Math.min(2,Math.floor(distance/(length/3)));
  $('flowWarning').textContent=state==='run'?warning:'';
  $('section').textContent=marathon()?['Парк','Рынок','Вокзал'][section]:level?['Депо','Набережная','Коллектор'][section]:sections[section];$('routeFill').style.transform='scaleX('+(marathon()?(distance%1000)/1000:Math.min(1,distance/length))+')';
@@ -195,7 +205,7 @@ function ui(){
  soundscape.sync(state==='run'||state==='finish',mute);
  $('cover').hidden=state!=='menu';$('hud').hidden=state==='menu';$('pause').hidden=state!=='run';$('overlay').hidden=!['win','lost','pause'].includes(state);status()
 }
-function start(){bootsTime=paidCoins=cleanStart=wordKm=0;revived=missionDone=kmWordDone=false;settled=false;prepareRoute();state='run';lane=x=height=velocity=slide=distance=coins=completed=elapsed=toiletTime=0;ground=cameraLift=magnet=grace=0;flight=null;catTime=catCooldown=0;poseSlide=poseBank=landing=runCycle=0;diving=false;flecks=[];letters=[];if(marathon())resetDistricts();else items=course();$('toast').textContent='';try{soundscape.init()}catch{}ui()}
+function start(){runKeys=stumbleTime=stumbleCooldown=0;bootsTime=paidCoins=cleanStart=wordKm=0;revived=missionDone=kmWordDone=false;settled=false;prepareRoute();state='run';lane=x=height=velocity=slide=distance=coins=completed=elapsed=toiletTime=0;ground=cameraLift=magnet=grace=0;flight=null;catTime=catCooldown=0;poseSlide=poseBank=landing=runCycle=0;diving=false;flecks=[];letters=[];if(marathon())resetDistricts();else items=course();$('toast').textContent='';try{soundscape.init()}catch{}ui()}
 function modal(label,title,details,button){$('label').textContent=label;$('heading').textContent=title;$('result').textContent=details;$('action').textContent=button;$('toast').textContent='';ui()}
 function end(won,cause){
  if(settled)return;settled=true;profile.wallet+=coins-paidCoins;paidCoins=coins;
@@ -203,7 +213,7 @@ function end(won,cause){
  if(won&&level===0)profile.first=true;if(won&&level===1)profile.second=true;saveProfile();
  state=won?'win':'lost';best=Math.max(best,score());try{localStorage.wcDashBest=String(best)}catch{}
 
- soundscape.effect(won?'win':'hit');modal(won?'ФИНИШ · WC':'ЗАБЕГ ОКОНЧЕН',won?'Успел!':cause||'Не добежал!',Math.floor(distance)+' м · Заработано '+coins+' 💩',won&&level===0?'На второй уровень →':'Ещё раз →')}
+ soundscape.effect(won?'win':'hit');modal(won?'ФИНИШ · WC':'ЗАБЕГ ОКОНЧЕН',won?'Успел!':cause||'Не добежал!',Math.floor(distance)+' м · Заработано '+coins+' 💩'+(runKeys?' · '+runKeys+' 🔑':''),won&&level===0?'На второй уровень →':'Ещё раз →')}
 function refreshSummary(){
  const results=state==='win'||state==='lost',paused=state==='pause';
  $('overlay').dataset.state=state;$('pauseStats').hidden=$('restart').hidden=$('pauseHint').hidden=!paused;
@@ -222,7 +232,7 @@ function revive(){
 
 function pause(){if(state!=='run')return;state='pause';modal('МОЖНО ВЫДОХНУТЬ','Пауза',(marathon()?'Марафон подождёт.': 'До WC ещё '+Math.ceil(length-distance)+' м.')+' Продолжим, когда будешь готов.','Продолжить забег →');$('action').focus()}
 function activateCat(){
- if(state!=='run'||catTime>0||catCooldown>0)return;
+ if(state!=='run'||flight||catTime>0||catCooldown>0)return;
  if(profile.cats<1){notice('Купи кота в улучшениях');return}
  profile.cats--;saveProfile();catTime=30+5*profile.cat;notice('Кот Дениса · '+catTime+' с');soundscape.effect('power')
 }
@@ -242,10 +252,15 @@ function tick(dt){
  runCycle+=dt*(4.2+clamp((speed()-13)/(marathon()?10:8),0,1)*7.4);
  if(state==='finish'){toiletTime+=dt;x=finishFrom*(1-ease(toiletTime/1.08));if(toiletTime>=5.34)end(true);return}
  if(marathon())extendDistricts();
+ const previousX=x;
  distance=Math.min(length,distance+dt*speed());x+=(lane*2.2-x)*(1-Math.exp(-15*dt));slide=Math.max(0,slide-(diving?0:dt));
+ stumbleTime=Math.max(0,stumbleTime-dt);stumbleCooldown=Math.max(0,stumbleCooldown-dt);
+ if(!flight){
  catCooldown=Math.max(0,catCooldown-dt);
  if(catTime>0){catTime=Math.max(0,catTime-dt);if(catTime===0)catCooldown=5}
- bootsTime=Math.max(0,bootsTime-dt);magnet=Math.max(0,magnet-dt);grace=Math.max(0,grace-dt);
+ bootsTime=Math.max(0,bootsTime-dt);magnet=Math.max(0,magnet-dt);
+ }
+ grace=Math.max(0,grace-dt);
  const wasGrounded=grounded()&&velocity<=0;
  let support=railFloor(trains,distance,x);
  for(const f of flows){
@@ -253,7 +268,16 @@ function tick(dt){
   const along=distance-f.front;
   if(along>=-.48&&along<=f.size+.55&&height>=1.42&&velocity<=0)support=Math.max(support,1.48);
  }
- if(!flight&&support>height+.14&&!absorbHit())return;
+ if(!flight&&support>height+.14){
+  const car=trains.find(c=>Math.abs(c.a-x)<1&&roofAt(c,distance)>height+.14);
+  const side=!!car&&distance>car.z+car.entry+.8&&Math.abs(previousX-car.a)>=1;
+  if(!absorbHit(side?'Задел борт поезда':'Врезался в поезд',side))return;
+  if(side){
+   const away=Math.sign(previousX-car.a)||1;
+   lane=clamp(Math.round(car.a/2.2)+away,-1,1);x=car.a+away*1.08;
+   support=railFloor(trains,distance,x)
+  }
+ }
  if(!flight&&wasGrounded&&Math.abs(ground-support)<.22)height=support;
  ground=support;
  poseBank+=(clamp((lane*2.2-x)*1.6,-1,1)-poseBank)*(1-Math.exp(-12*dt));
@@ -276,21 +300,27 @@ function tick(dt){
  while(firstNearby<items.length&&items[firstNearby].z<distance-rearMargin)firstNearby++;
  for(let i=firstNearby;i<items.length&&items[i].z<=distance+2.3;i++){
   const it=items[i];if(it.done)continue;
-  const dz=it.z-distance,dx=Math.abs(it.a-x),pull=it.type==='poo'&&magnet>0&&Math.abs(height+.70-it.y)<2.9;
+  const dz=it.z-distance,dx=Math.abs(it.a-x),pull=it.type==='poo'&&!flight&&magnet>0&&Math.abs(height+.70-it.y)<2.9;
   if(Math.abs(dz)>(pull?2.2:.57)||dx>(pull?4.7:.86))continue;
   if(isBarrier(it.type)){
    if(!flight&&hitsBarrier(it)){
     it.done=true;
-    if(!absorbHit())return
+    const light=it.type==='crate'||dx>.68;
+    if(!absorbHit('Врезался в препятствие',light))return;
+    if(dx>.68){const away=Math.sign(x-it.a)||1;lane=clamp(Math.round(it.a/2.2)+away,-1,1);x=it.a+away*1.08}
    }
    continue
   }
   if(it.type==='poo'){
    if(!pull&&Math.abs(height+(slide>0?.38:.70)-it.y)>.76)continue;
    coins++;scatter(it.a,it.y,it.z,'ffcb55');soundscape.effect('coin')
-  }else if(it.type==='magnet'||it.type==='boots'||it.type==='laxative'){
+  }else if(it.type==='key'){
+   if(Math.abs(height+.7-(it.y+1.0))>1.15)continue;
+   profile.keys++;runKeys++;saveProfile();notice('Ключ от WC · '+profile.keys+' в запасе');soundscape.effect('key');
+   scatter(it.a,it.y+1,it.z,'59bcff')
+  }else if(it.type==='magnet'||it.type==='boots'||it.type==='wings'){
    if(Math.abs(height-it.y)>1.5)continue;
-   if(it.type==='laxative'){if(flight)continue;beginFlight()}
+   if(it.type==='wings'){if(flight)continue;beginFlight()}
    else{
     if(it.type==='boots'){bootsTime=7+2*profile.boots;notice('Высокий прыжок · '+bootsTime+' с')}
     else if(it.type==='magnet'){magnet=6+2*profile.magnet;notice('Магнит · '+magnet+' с')}
@@ -309,7 +339,7 @@ function tick(dt){
   it.done=true
  }
  if(!missionDone&&distance-cleanStart>=cleanGoal){missionDone=true;coins+=cleanReward;notice('250 м без удара · +25 💩')}
- if(distance===length){height=slide=ground=cameraLift=0;finishFrom=x;poseSlide=poseBank=landing=0;diving=false;state='finish';$('toast').textContent='';ui()}
+ if(distance===length){height=slide=ground=cameraLift=0;stumbleTime=0;finishFrom=x;poseSlide=poseBank=landing=0;diving=false;state='finish';$('toast').textContent='';ui()}
 }
 let prev=0;
 function frame(ms){const dt=Math.min(.07,(ms-(prev||ms))/1000);prev=ms;clock+=dt;
@@ -339,11 +369,12 @@ canvas.addEventListener('pointermove',swipe);canvas.addEventListener('pointerup'
 addEventListener('blur',pause);document.addEventListener('visibilitychange',()=>{if(document.hidden)pause()});
 $('hint').textContent=navigator.maxTouchPoints?'Свайпай по экрану':'Стрелки или WASD';
 if(navigator.maxTouchPoints)document.querySelector('footer').prepend(document.createTextNode('Свайпы'));
-$('settingsBtn').onclick=showSettings;$('pauseSettings').onclick=showSettings;
+$('skinsBtn').onclick=()=>showShop('skins');$('settingsBtn').onclick=showSettings;$('pauseSettings').onclick=showSettings;
 $('musicVolume').oninput=e=>{soundscape.setVolumes(+e.target.value/100,+$('fxVolume').value/100);volumeLabels()};
 $('fxVolume').oninput=e=>{soundscape.setVolumes(+$('musicVolume').value/100,+e.target.value/100);volumeLabels()};
 function volumeLabels(){$('musicValue').textContent=$('musicVolume').value+'%';$('fxValue').textContent=$('fxVolume').value+'%'}
 function showSettings(){const v=soundscape.getVolumes();$('musicVolume').value=Math.round(v.music*100);$('fxVolume').value=Math.round(v.fx*100);volumeLabels();$('settings').showModal()}
-$('revive').onclick=revive;$('resultShop').onclick=showShop;$('shopBtn').onclick=showShop;
+document.querySelectorAll('[data-store-tab]').forEach(b=>b.onclick=()=>showShop(b.dataset.storeTab));
+$('revive').onclick=revive;$('resultShop').onclick=()=>showShop('gear');$('shopBtn').onclick=()=>showShop('gear');
 document.querySelectorAll('[data-route]').forEach((b,i)=>b.onclick=()=>chooseRoute(i));chooseRoute(0);
 ui();requestAnimationFrame(frame);

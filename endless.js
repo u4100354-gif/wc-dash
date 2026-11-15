@@ -35,10 +35,14 @@ function extendDistricts(){
    const y=trail?.y??(gate?(gateType==='crate'?.65+jumpApex*Math.max(0,1-((n-24)/(speedAt(start+24)*jumpHalfTime))**2):.35):.65);
    const a=trail?.a??(gate?gateLane:road);
    items.push({type:'poo',z,a,y});
-   if(n%18===4&&z+.8>=1000)items.push({type:'letter',z:z+.8,a,y:railFloor(group,z+.8,a)})
+   if(n%36===4&&z+.8>=1000)items.push({type:'letter',z:z+.8,a,y:railFloor(group,z+.8,a)})
   }
   if(districtNumber%3===0)items.push({type:districtNumber%2?'boots':'magnet',z:start+11,a:0,y:0});
-  if(districtNumber%6===0)items.push({type:'laxative',z:start+106,a:0,y:0});
+  if(districtNumber%6===0)items.push({type:'wings',z:start+106,a:0,y:0});
+  {
+   const z=start+80,trail=railTrail(group,z),a=trail?.a??0;
+   items.push({type:'key',z,a,y:railFloor(group,z,a)})
+  }
   nextDistrict+=span;districtNumber++
  }
  items.sort((a,b)=>a.z-b.z)

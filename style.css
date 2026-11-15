@@ -44,3 +44,27 @@ dialog{width:min(92vw,430px);max-height:88dvh;padding:24px;border:0;border-radiu
  article p{font-size:12px;margin:10px 0}#pauseStats{margin:12px 0}#pauseStats>div{padding:10px 2px}#pauseHint{display:none}
  #home{margin-top:7px}
 }
+
+/* Wardrobe and the independent blue-key wallet. */
+.wardrobeLink{grid-column:1/-1;min-height:44px;background:#dce8dc}
+#keyBadge{position:absolute;left:16px;bottom:20px;display:flex;align-items:center;gap:7px;padding:9px 12px;border:1px solid #d5eaf3;border-radius:12px;background:#e5f3eddd;color:#216883;font-size:14px;pointer-events:none}
+.storeTabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:16px 0 8px}.storeTabs button{min-height:44px;border:0;border-radius:10px;padding:8px;color:#426b5b;background:#e3e7d2;font-size:12px;font-weight:700}.storeTabs [aria-selected=true]{color:#fff4d7;background:#235d50}
+#store:has(#wardrobe:not([hidden])){width:min(94vw,590px)}
+.skinIntro{margin:12px 0 18px}.skinGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.skinCard{padding:12px 8px;background:#e9ecda;border:1px solid transparent;border-radius:13px;text-align:center}.skinCard[data-selected=true]{border-color:#3d7a62;background:#dce9cf}.skinCard>strong{display:block;font-size:12px;min-height:32px;line-height:1.3;margin:6px 0}.skinCard>button{width:100%;min-height:44px;padding:6px;border:0;border-radius:8px;background:#235b50;color:#fff4dc;font-size:10px;font-weight:700}.skinCard>button:disabled{background:#cbd6be;color:#607260}
+.skinPreview{position:relative;width:68px;height:100px;margin:auto}.skinPreview i{display:block;position:absolute;box-shadow:inset -4px -2px #143d3c18}.skinHead{left:22px;top:23px;width:26px;height:27px;background:#dfaa7d;border-radius:4px}.skinHead:after{content:"··";position:absolute;left:6px;top:-1px;letter-spacing:4px;font-weight:900;color:#3b3c3d}.skinHat{left:19px;top:17px;width:32px;height:12px;background:var(--cap);border-radius:5px 5px 1px 1px;z-index:1}.skinTorso{left:14px;top:48px;width:42px;height:32px;background:var(--coat);border-radius:7px 7px 2px 2px;border-bottom:5px solid var(--accent)}.skinTorso:before{content:"";position:absolute;left:20px;top:0;height:26px;border-left:2px solid var(--accent)}.skinLegs{left:22px;top:80px;width:13px;height:18px;background:#3b4c58;box-shadow:15px 0 #3b4c58!important}
+.skinPreview.space .skinHat{height:34px;top:14px;width:38px;left:16px;border:6px solid var(--cap);background:#659198;border-radius:12px}
+.skinPreview.ninja .skinHead{background:var(--coat)}.skinPreview.ninja .skinHead:after{background:#dda77a;height:11px;top:4px;left:2px;width:22px}
+.skinPreview.fire .skinHat,.skinPreview.courier .skinHat{height:19px;top:12px;border-bottom:4px solid var(--accent)}
+.skinPreview.polar .skinHead{outline:5px solid var(--accent);border-radius:12px}
+.skinPreview.punk .skinHat{width:11px;height:25px;top:0;left:30px;background:var(--accent)}
+.skinPreview.chef .skinHat{height:28px;top:0;outline:4px solid #f5f1df;border-radius:12px 12px 2px 2px}
+.skinPreview.cyber .skinHead:after{content:"";width:24px;height:8px;left:1px;top:5px;background:var(--accent)}
+.skinPreview.pirate .skinHat{transform:rotate(-12deg);height:18px;left:13px;width:43px}
+.skinPreview.royal .skinHat{height:22px;top:4px;background:var(--accent);clip-path:polygon(0 0,25% 35%,50% 0,75% 35%,100% 0,100% 100%,0 100%)}
+@media(max-width:440px){.skinGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.skinCard>strong{min-height:20px}#keyBadge{left:12px;bottom:18px}#powers{max-width:94%;font-size:9px;line-height:1.5}}
+@media(max-height:540px) and (min-width:681px){.menuActions{grid-template-columns:1.2fr 1fr 1fr}.menuActions .wardrobeLink{grid-column:auto}.menuActions button{font-size:10px}}
+
+#powers{width:max-content}
+#store>form{position:sticky;top:-24px;z-index:2;background:var(--paper);margin:-24px -24px 0;padding:18px 24px 0}
+#store .storeTabs{position:sticky;top:48px;z-index:2;background:var(--paper);padding:5px 0 8px}

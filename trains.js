@@ -23,15 +23,38 @@ function railFloor(cars, z, x) {
  }
  return 0;
 }
-function railTrail(cars, z) {
- for (const car of cars) {
-  if (car.parallel) continue;
-  const edge = trainEnd(car);
-  if (car.gap && z >= edge-4 && z <= edge+car.gap+5) {
-   const u = (z-edge+4)/(car.gap+9);
-   return {a:car.a, y:roofHeight+.64+1.65*Math.sin(Math.PI*u)};
-  }
-  if (z >= car.z-2 && z <= edge) return {a:car.a, y:roofAt(car,z)+.64};
+// Sample the same 120 Hz vertical and forward integration as gameplay.
+// Centre the apex over the coupling; faster routes get a longer coin arc.
+function roofJumpArc(car){
+ const edge=trainEnd(car),pace=speedAt(edge),cached=car.jumpArc;
+ if(cached&&cached.pace===pace)return cached;
+ const dt=1/120,apexSteps=Math.round(jumpVelocity/gravity/dt-.5);
+ let start=edge+car.gap/2;
+ for(let n=0;n<apexSteps;n++){
+  const next=start;let previous=next-pace*dt;
+  for(let k=0;k<5;k++)previous=next-speedAt(previous)*dt;
+  start=previous
  }
- return null;
+ let z=start,y=0,v=jumpVelocity;const samples=[{z,y:roofHeight+.64}];
+ for(let n=0;n<240;n++){
+  z+=speedAt(z)*dt;v-=gravity*dt;y=Math.max(0,y+v*dt);
+  samples.push({z,y:roofHeight+.64+y});if(y===0)break
+ }
+ return car.jumpArc={pace,start,end:z,samples}
+}
+function railTrail(cars,z){
+ for(const car of cars){
+  if(car.parallel)continue;
+  if(car.gap){
+   const arc=roofJumpArc(car);
+   if(z>=arc.start&&z<=arc.end){
+    let lo=0,hi=arc.samples.length-1;
+    while(hi-lo>1){const mid=(lo+hi)>>1;if(arc.samples[mid].z<=z)lo=mid;else hi=mid}
+    const a=arc.samples[lo],b=arc.samples[hi],t=(z-a.z)/(b.z-a.z);
+    return {a:car.a,y:a.y+(b.y-a.y)*t}
+   }
+  }
+  if(z>=car.z-2&&z<=trainEnd(car))return {a:car.a,y:roofAt(car,z)+.64}
+ }
+ return null
 }
