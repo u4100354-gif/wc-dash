@@ -10,7 +10,7 @@ const revivePrice=40,cleanGoal=250,cleanReward=25;
 let best=0,mute=false;
 try{best=Number(localStorage.wcDashBest)||0;mute=localStorage.wcDashMuted==='yes'}catch{}
 let state='menu',distance=0,lane=0,x=0,height=0,velocity=0,slide=0,coins=0,completed=0,letters=[],items=[],stamp=0,noticeUntil=0,clock=0,elapsed=0,toiletTime=0;
-let poseSlide=0,poseBank=0,landing=0,flecks=[],runCycle=0;
+let poseSlide=0,poseBank=0,landing=0,flecks=[],runCycle=0,diving=false;
 const sections=['Вестибюль','Стеклянная галерея','Зимний сад'];
 function scatter(a,b,z,color){
  flecks=flecks.filter(e=>elapsed-e.at<.43);
@@ -96,7 +96,7 @@ function beginFlight(){
  const reach=Math.min(140,length-distance-12);
  if(reach<50)return;
  flight={start:distance,end:distance+reach,from:height};
- slide=velocity=0;
+ slide=velocity=0;diving=false;
  const airLanes=lane===0?[0,1,0,-1]:[lane,0,-lane,0];
  const airTrail=[];
  for(let dz=16;dz<reach-21;dz+=2.5){
@@ -195,7 +195,7 @@ function ui(){
  soundscape.sync(state==='run'||state==='finish',mute);
  $('cover').hidden=state!=='menu';$('hud').hidden=state==='menu';$('pause').hidden=state!=='run';$('overlay').hidden=!['win','lost','pause'].includes(state);status()
 }
-function start(){bootsTime=paidCoins=cleanStart=wordKm=0;revived=missionDone=kmWordDone=false;settled=false;prepareRoute();state='run';lane=x=height=velocity=slide=distance=coins=completed=elapsed=toiletTime=0;ground=cameraLift=magnet=grace=0;flight=null;catTime=catCooldown=0;poseSlide=poseBank=landing=runCycle=0;flecks=[];letters=[];if(marathon())resetDistricts();else items=course();$('toast').textContent='';try{soundscape.init()}catch{}ui()}
+function start(){bootsTime=paidCoins=cleanStart=wordKm=0;revived=missionDone=kmWordDone=false;settled=false;prepareRoute();state='run';lane=x=height=velocity=slide=distance=coins=completed=elapsed=toiletTime=0;ground=cameraLift=magnet=grace=0;flight=null;catTime=catCooldown=0;poseSlide=poseBank=landing=runCycle=0;diving=false;flecks=[];letters=[];if(marathon())resetDistricts();else items=course();$('toast').textContent='';try{soundscape.init()}catch{}ui()}
 function modal(label,title,details,button){$('label').textContent=label;$('heading').textContent=title;$('result').textContent=details;$('action').textContent=button;$('toast').textContent='';ui()}
 function end(won,cause){
  if(settled)return;settled=true;profile.wallet+=coins-paidCoins;paidCoins=coins;
@@ -230,15 +230,19 @@ function move(action){
  if(state!=='run')return;
  if(action==='left'||action==='right'){lane=clamp(lane+(action==='left'?-1:1),-1,1);return}
  if(flight)return;
- if(action==='up'&&grounded()){slide=0;velocity=jumpVelocity*(bootsTime>0?Math.sqrt(1.5):1);soundscape.effect('jump')}
- if(action==='down'&&grounded()){soundscape.effect('slide');slide=.80}
+ if(action==='up'&&grounded()){slide=0;diving=false;velocity=jumpVelocity*(bootsTime>0?Math.sqrt(1.5):1);soundscape.effect('jump')}
+ if(action==='down'){
+  soundscape.effect('slide');slide=.80;
+  if(!grounded()){diving=true;velocity=Math.min(velocity,-12)}
+  else{diving=false;velocity=0}
+ }
 }
 function tick(dt){
  elapsed+=dt;
  runCycle+=dt*(4.2+clamp((speed()-13)/(marathon()?10:8),0,1)*7.4);
  if(state==='finish'){toiletTime+=dt;x=finishFrom*(1-ease(toiletTime/1.08));if(toiletTime>=5.34)end(true);return}
  if(marathon())extendDistricts();
- distance=Math.min(length,distance+dt*speed());x+=(lane*2.2-x)*(1-Math.exp(-15*dt));slide=Math.max(0,slide-dt);
+ distance=Math.min(length,distance+dt*speed());x+=(lane*2.2-x)*(1-Math.exp(-15*dt));slide=Math.max(0,slide-(diving?0:dt));
  catCooldown=Math.max(0,catCooldown-dt);
  if(catTime>0){catTime=Math.max(0,catTime-dt);if(catTime===0)catCooldown=5}
  bootsTime=Math.max(0,bootsTime-dt);magnet=Math.max(0,magnet-dt);grace=Math.max(0,grace-dt);
@@ -253,13 +257,13 @@ function tick(dt){
  if(!flight&&wasGrounded&&Math.abs(ground-support)<.22)height=support;
  ground=support;
  poseBank+=(clamp((lane*2.2-x)*1.6,-1,1)-poseBank)*(1-Math.exp(-12*dt));
- poseSlide+=((slide>0&&grounded()?1:0)-poseSlide)*(1-Math.exp(-18*dt));
+ poseSlide+=((slide>0&&(grounded()||diving)?1:0)-poseSlide)*(1-Math.exp(-18*dt));
  landing*=Math.exp(-11*dt);
  if(flight)advanceFlight(support);
  else{
   const wasAirborne=!wasGrounded;
   velocity-=gravity*dt;height=Math.max(ground,height+velocity*dt);if(grounded()&&velocity<0)velocity=0;
-  if(wasAirborne&&grounded()){landing=1;scatter(x,ground+.12,distance,'dcd9b3')}
+  if(wasAirborne&&grounded()){if(diving){diving=false;slide=.80}landing=1;scatter(x,ground+.12,distance,'dcd9b3')}
   if(grounded()&&!slide)soundscape.effect('step')
  }
  const cameraTarget=flight?height:Math.max(ground,height-.95);
@@ -305,7 +309,7 @@ function tick(dt){
   it.done=true
  }
  if(!missionDone&&distance-cleanStart>=cleanGoal){missionDone=true;coins+=cleanReward;notice('250 м без удара · +25 💩')}
- if(distance===length){height=slide=ground=cameraLift=0;finishFrom=x;poseSlide=poseBank=landing=0;state='finish';$('toast').textContent='';ui()}
+ if(distance===length){height=slide=ground=cameraLift=0;finishFrom=x;poseSlide=poseBank=landing=0;diving=false;state='finish';$('toast').textContent='';ui()}
 }
 let prev=0;
 function frame(ms){const dt=Math.min(.07,(ms-(prev||ms))/1000);prev=ms;clock+=dt;
