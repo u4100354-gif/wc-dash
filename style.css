@@ -68,3 +68,7 @@ dialog{width:min(92vw,430px);max-height:88dvh;padding:24px;border:0;border-radiu
 #powers{width:max-content}
 #store>form{position:sticky;top:-24px;z-index:2;background:var(--paper);margin:-24px -24px 0;padding:18px 24px 0}
 #store .storeTabs{position:sticky;top:48px;z-index:2;background:var(--paper);padding:5px 0 8px}
+/* Inspector never adds a modal or darkens the captured game frame. */
+#devPanel{position:absolute;left:16px;bottom:72px;z-index:12;max-width:360px;padding:12px 15px;background:#173d39ed;border:1px solid #e1cb8a80;border-radius:12px;box-shadow:0 8px 24px #0003;display:grid;gap:5px;color:#fff1ce;user-select:none}
+#devPanel strong{font-size:12px}#devPanel span{font-size:10px;opacity:.8}#devPanel>div{display:flex;gap:8px;margin-top:5px}#devPanel button{border:1px solid #c5cfb066;border-radius:6px;background:#f2e4c4;color:#214c46;padding:6px 10px;font-size:11px}
+@media(max-width:680px){#devPanel{left:10px;right:10px;bottom:84px;max-width:none}}

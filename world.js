@@ -9,7 +9,8 @@ function createWorld(canvas) {
  function person(a,b,z,angle,t,jump,idle){
   const closing=state==='finish'||state==='win';
   runner.update({x:a,y:b,z,angle,t,phase:runCycle,idle,jump,velocity,
-   slide:idle?0:poseSlide,bank:idle?0:poseBank,landing:idle?0:landing,
+   slide:idle?0:poseSlide,roll:idle?0:rollAge>=0?clamp(rollAge/.8,0,1):0,bank:idle?0:poseBank,landing:idle?0:landing,
+   speed:speed(),distance,dirty:!idle&&flowHits>0,
    riding:!idle&&catTime>0&&!flight&&!closing,
    finish:closing?ease((toiletTime-1.28)/.70):0,skin:currentSkin(),boots:bootsTime>0});
  }
@@ -167,6 +168,7 @@ function createWorld(canvas) {
  function world(d,menu){
   const start=Math.floor((d-20)/5),end=Math.floor((d+110)/5);
   for(let i=start;i<=end;i++){const z=i*5-d,zone=marathon()?biomeAt(i*5):Math.min(2,Math.max(0,Math.floor(i*5/(length/3))));
+   if(level===0&&!menu&&sewerAt(i*5)){drawSewerSection(stage,z,i);continue;}
    const covered=menu?false:((i%48+48)%48>=35&&(i%48+48)%48<39);
    const ceramic=['7aada4','88b5a6','91b587'][zone],wall=['efe6c9','e7e9d9','ebe4c8'][zone];
    for(let l=-1;l<=1;l++){
@@ -247,6 +249,7 @@ function createWorld(canvas) {
   let f=menu?Math.min(h*1.24,w*1.50):Math.min(h*.92,w*1.10);
   const eye=[menu?(mobile?-3.0:-2.15):x*(mobile?.38:.16)-3.55*cinema,menu?(mobile?2.0:1.77):3.15+cameraLift*1.07-.89*cinema,menu?(mobile?(h<600?-8.2:-6.6):-4.20):-6.25-cameraLift*.30+2.15*cinema],offsetX=menu?(mobile?.22:.40):0,offsetY=menu?(mobile?(h<600?.64:.52):-.04):-.05;
   shapes.forEach(sh=>sh.used=0);mars.root.visible=false;world(d,menu);decor.draw(d,menu);
+  stage.setSewer?.(level===0&&!menu?sewerBlendAt(d):0);
   const heroX=menu?0:x,heroZ=closing?.16*ease(toiletTime/.80)+.65*ease((toiletTime-1.94)/.54):0;
   person(heroX,menu?0:height,heroZ,menu?-2.32:closing?Math.PI*ease((toiletTime-.66)/.61):clamp((lane*2.2-x)*.15,-.25,.25),t,!grounded(),menu);
   if(menu){denisCat(.84,0,.05,t,true);wc(mobile?1.70:2.25,3.85);token(-1.3,1.8,t)}
@@ -258,14 +261,8 @@ function createWorld(canvas) {
      continue
     }
     const front=f.front-d;
-    for(let n=0;n<=f.size;n+=1.5){
-     const wobble=Math.sin(t*6+n)*.06,crest=n<2?1.38:.93;
-     round(f.a+wobble,.58,front+n,1.87,1.13,2.24,'775033');
-     round(f.a-wobble,crest,front+n+.17,1.63,.62,1.98,'9a6738');
-     round(f.a+.26*Math.sin(n),crest+.31+wobble,front+n+.42,.88,.32,1.15,'b7814c')
-    }
-    for(const sign of [-1,1]){box(f.a+sign*.53,.86,front-.87,.25,.18,.13,'ffe587');box(f.a+sign*.33,1.42,front-.65,.17,.15,.09,'ffc163')}
-    if(front>1)for(let n=2;n<Math.min(18,front);n+=3)box(f.a,.03,n,1.28,.024,.24,'e78a46');
+    drawSewerFlow(stage,f,front,t);
+    for(const pickup of f.tokens||[])if(!pickup.done)token(f.a,front+pickup.offset,t,(f.top??1.48)+.65);
    }
    for(const train of trains)carriage(train,d);
    if(!closing&&!flight&&catTime>0)denisCat(x,height,-.2,t);

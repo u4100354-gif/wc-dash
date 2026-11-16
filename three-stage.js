@@ -10,7 +10,14 @@ function createThreeStage(canvas) {
  const scene=new T.Scene();scene.background=new T.Color('#81cbe3');scene.fog=new T.Fog('#b9dfdf',48,135);
  const content=new T.Group();content.scale.z=-1;scene.add(content);
  const camera=new T.PerspectiveCamera(55,1,.08,240);
- scene.add(new T.HemisphereLight('#d9f3ff','#b89573',2.1));
+ const inspection=typeof createCameraInspector==='function'?createCameraInspector(camera,canvas):{active:false,update(){}};
+ const hemisphere=new T.HemisphereLight('#d9f3ff','#b89573',2.1);scene.add(hemisphere);
+ const sewerLight=new T.PointLight('#c6e5a1',0,38,1);sewerLight.position.set(0,5,1);scene.add(sewerLight);
+ const dayFog=new T.Color('#b9dfdf'),sewerFog=new T.Color('#4f6658');
+ function setSewer(amount){
+  hemisphere.intensity=2.1-amount*1.05;sun.intensity=3.1-amount*2.8;fill.intensity=.7-amount*.45;
+  sewerLight.intensity=amount*34;scene.fog.color.copy(dayFog).lerp(sewerFog,amount);scene.fog.near=48-amount*20;scene.fog.far=135-amount*60;
+ }
  const sun=new T.DirectionalLight('#fff1ce',3.1);sun.position.set(-9,17,5);sun.castShadow=true;
  sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-16;sun.shadow.camera.right=16;
  sun.shadow.camera.top=24;sun.shadow.camera.bottom=-12;sun.shadow.camera.near=.5;sun.shadow.camera.far=75;
@@ -40,6 +47,7 @@ function createThreeStage(canvas) {
  const cube=shape(typeof RoundedBoxGeometry==='function'?new RoundedBoxGeometry(1,1,1,2,.055):new T.BoxGeometry(1,1,1));
  const puck=shape(new T.CylinderGeometry(.5,.5,1,24));
  const sphere=shape(new T.SphereGeometry(.5,24,16));
+ const fluid=shape(new T.SphereGeometry(.5,32,20));fluid.mesh.material.roughness=.23;fluid.mesh.material.metalness=.10;
  const profile=[[0,0],[.25,.035],[.34,.2],[.49,.75],[.50,.88],[.46,1],[.38,.98],[.34,.72],[.15,.40],[0,.39]];
  const bowl=shape(new T.LatheGeometry(profile.map(([r,y])=>new T.Vector2(r,y)),32));
  function put(sh,a,b,z,sx,sy,sz,col,ry=0,rx=0,roll=0){
@@ -55,10 +63,12 @@ function createThreeStage(canvas) {
   camera.aspect=w/h;camera.fov=T.MathUtils.radToDeg(2*Math.atan(h/(2*f)));camera.updateProjectionMatrix();
   camera.projectionMatrix.elements[8]=-offsetX;camera.projectionMatrix.elements[9]=-offsetY;
   camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
-  camera.position.set(eye[0],eye[1],-eye[2]);
-  camera.lookAt(eye[0]+Math.sin(yaw)*Math.cos(pitch),eye[1]-Math.sin(pitch),-eye[2]-Math.cos(yaw)*Math.cos(pitch));
+  if(!inspection.active){
+   camera.position.set(eye[0],eye[1],-eye[2]);
+   camera.lookAt(eye[0]+Math.sin(yaw)*Math.cos(pitch),eye[1]-Math.sin(pitch),-eye[2]-Math.cos(yaw)*Math.cos(pitch));
+  }else inspection.update();
   for(const sh of shapes){sh.mesh.count=sh.used;sh.mesh.instanceMatrix.needsUpdate=true;if(sh.mesh.instanceColor)sh.mesh.instanceColor.needsUpdate=true;}
   renderer.render(scene,camera);
  }
- return {scene,content,camera,renderer,shapes,cube,puck,sphere,bowl,put,box,round,draw};
+ return {scene,content,camera,renderer,inspection,shapes,cube,puck,sphere,fluid,bowl,put,box,round,setSewer,draw};
 }

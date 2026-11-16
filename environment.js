@@ -18,6 +18,7 @@ function createDepotDecor(stage){
   const from=Math.floor((d-20)/24),to=Math.ceil((d+110)/24);
   for(let i=from;i<=to;i++){
    const z=i*24-d;
+   if(level===0&&!menu&&sewerAt(i*24))continue;
    for(const side of [-1,1]){
     const a=side*6.2;
     // Chunky, colorful street façades beyond the safety fence.

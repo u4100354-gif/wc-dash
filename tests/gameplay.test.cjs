@@ -57,13 +57,13 @@ test('a frontal encounter with an incoming train causes a real collision',()=>{
 test('showcase can be completed on the ground without invulnerability or revives',()=>{
  const {run}=game();
  const result=run(`start();
- const steering=[[0,1],[55,0],[132,-1],[148,0],[173,-1],[280,0],[294,1],[319,0],[343,1],[474,0],[630,1],[650,-1]];
+ const steering=[[0,1],[55,0],[132,-1],[148,0],[173,-1],[280,0],[294,1],[319,0],[355,1],[474,0],[650,-1]];
  let next=0,steps=0;
  while((state==='run'||state==='finish')&&steps++<8000){
   if(next<steering.length&&distance>=steering[next][0]){lane=steering[next][1];next++}
   tick(1/120);
  }
- ({state,distance,elapsed,revived,stumbleCooldown,profileFirst:profile.first});`);
+ ({state,distance,elapsed,revived,lane,x,flowHits,cause:$('heading').textContent,stumbleCooldown,profileFirst:profile.first});`);
  assert.equal(result.state,'win',JSON.stringify(result));assert.equal(result.distance,720);
  assert.equal(result.revived,false);assert.equal(result.profileFirst,true);
  assert.ok(result.elapsed>=43&&result.elapsed<50);

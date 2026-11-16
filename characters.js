@@ -8,9 +8,39 @@ function characterKit(){
  function joint(parent,name,x,y,z){const node=new T.Group();node.name=name;node.position.set(x,y,z);parent.add(node);return node;}
  return {T,material,ellipsoid,segment,joint};
 }
+// One closed surface spans each joint. Skin weights blend across the elbow/knee
+// instead of leaving gaps between separately rotated capsules.
+function createSkinLimb(parent,name,upper,lower,radii,material){
+ const T=THREE,total=upper+lower,rings=44,sides=20;
+ const positions=[],normals=[],indices=[],skinIndices=[],skinWeights=[],uv=[];
+ const profile=t=>{
+  const stops=radii;
+  for(let i=1;i<stops.length;i++)if(t<=stops[i][0]){const a=stops[i-1],b=stops[i],v=(t-a[0])/(b[0]-a[0]);return a[1]+(b[1]-a[1])*(v*v*(3-2*v));}
+  return stops.at(-1)[1];
+ };
+ const smooth=v=>{v=Math.min(1,Math.max(0,v));return v*v*(3-2*v)};
+ for(let ring=0;ring<=rings;ring++){
+  const t=ring/rings,d=t*total,r=profile(t);
+  const mid=smooth((d-upper+.085)/.17),end=smooth((d-total+.06)/.06);
+  for(let side=0;side<=sides;side++){
+   const angle=side/sides*Math.PI*2;
+   positions.push(Math.cos(angle)*r,-d,Math.sin(angle)*r);normals.push(Math.cos(angle),0,Math.sin(angle));uv.push(side/sides,t);
+   skinIndices.push(0,1,2,0);skinWeights.push(1-mid,mid*(1-end),mid*end,0);
+   if(ring<rings&&side<sides){const a=ring*(sides+1)+side,b=a+sides+1;indices.push(a,a+1,b,b,a+1,b+1);}
+  }
+ }
+ const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));
+ geometry.setAttribute('normal',new T.Float32BufferAttribute(normals,3));geometry.setAttribute('uv',new T.Float32BufferAttribute(uv,2));
+ geometry.setAttribute('skinIndex',new T.Uint16BufferAttribute(skinIndices,4));geometry.setAttribute('skinWeight',new T.Float32BufferAttribute(skinWeights,4));geometry.setIndex(indices);geometry.computeVertexNormals();
+ const top=new T.Bone(),middle=new T.Bone(),end=new T.Bone();top.name=name+'Root';middle.name=name+'Joint';end.name=name+'End';
+ middle.position.y=-upper;end.position.y=-lower;top.add(middle);middle.add(end);parent.add(top);
+ const mesh=new T.SkinnedMesh(geometry,material);mesh.name=name+'Surface';mesh.castShadow=mesh.receiveShadow=true;mesh.frustumCulled=false;parent.add(mesh);
+ parent.updateWorldMatrix(true,true);mesh.bind(new T.Skeleton([top,middle,end]));
+ return {mesh,top,middle,end};
+}
 function createRunner(parent){
  const {T,material,ellipsoid:E,segment:S,joint:J}=characterKit();
- const root=J(parent,'Denis',0,0,0),hips=J(root,'hips',0,.85,0),torso=J(hips,'torso',0,.06,0);
+ const root=J(parent,'Denis',0,0,0),somersault=J(root,'somersault',0,0,0),hips=J(somersault,'hips',0,.98,0),torso=J(hips,'torso',0,.03,0);
  const coat=E(torso,'#ed7541',0,.27,0,.31,.37,.21);
  E(torso,'#ff9e60',0,.04,.03,.29,.11,.21);E(torso,'#da5935',0,.47,-.11,.27,.18,.18);
  // Hoodie seam, zipper and pocket; front points in the direction of travel.
@@ -19,6 +49,7 @@ function createRunner(parent){
  E(torso,'#ca563b',0,.14,.193,.20,.075,.035);
  const neck=E(torso,'#f3bd93',0,.66,0,.12,.15,.12);
  const head=J(torso,'head',0,.82,0);
+ head.scale.setScalar(.70);
  E(head,'#f5c39a',0,0,.015,.235,.27,.22);
  for(const side of [-1,1]){
   E(head,'#edaf8a',side*.23,-.015,0,.055,.085,.05);
@@ -36,16 +67,22 @@ function createRunner(parent){
  const arms=[],legs=[];
  for(const side of [-1,1]){
   const label=side<0?'left':'right';
-  const arm=J(torso,label+'Shoulder',side*.31,.49,0);
-  S(arm,'#ed7541',0,-.15,0,.09,.30);
-  const elbow=J(arm,label+'Elbow',0,-.30,0);E(elbow,'#f6864c',0,0,0,.079,.079,.079);S(elbow,'#f6864c',0,-.13,0,.08,.27);
-  E(elbow,'#f4bf94',0,-.30,0,.081,.095,.085);arms.push({arm,elbow,side});
-  const leg=J(hips,label+'Hip',side*.14,0,0);S(leg,'#294d65',0,-.18,0,.10,.36);
-  const knee=J(leg,label+'Knee',0,-.36,0);E(knee,'#365b72',0,0,0,.083,.083,.083);const shin=S(knee,'#365b72',0,-.16,0,.085,.32);
-  const shoe=J(knee,label+'Shoe',0,-.32,.055);
+  const shoulder=J(torso,label+'Shoulder',side*.30,.49,0);
+  const armRig=createSkinLimb(shoulder,label+'Arm',.32,.30,[[0,.10],[.18,.095],[.5,.078],[.65,.079],[.88,.062],[1,.058]],material('#ed7541'));
+  const arm=armRig.top,elbow=armRig.middle,wrist=armRig.end;
+  const hand=J(wrist,label+'Hand',0,-.045,.01);
+  E(hand,'#f4bf94',0,-.027,0,.057,.085,.042);
+  E(hand,'#efb48e',-side*.052,-.012,.025,.027,.046,.029);
+  E(wrist,'#f7ba7a',0,.012,0,.065,.028,.064);
+  arms.push({arm,elbow,wrist,hand,side});
+  const hip=J(hips,label+'HipSocket',side*.14,0,0);
+  const legRig=createSkinLimb(hip,label+'Leg',.45,.43,[[0,.122],[.20,.115],[.49,.082],[.58,.085],[.72,.091],[.90,.062],[1,.054]],material('#294d65'));
+  const leg=legRig.top,knee=legRig.middle,ankle=legRig.end,shin=legRig.mesh;
+  knee.name=label+'Knee';
+  const shoe=J(ankle,label+'Shoe',0,0,0);
   E(shoe,'#fff5db',0,-.038,.045,.125,.065,.22);E(shoe,'#edb84e',0,.019,.04,.117,.073,.20);
   for(let i=0;i<3;i++)E(shoe,'#fff8e5',0,.076,.045+i*.037,.077,.012,.012);
-  legs.push({leg,knee,shoe,shin,side});
+  legs.push({leg,knee,shoe,shin,side,anchor:null,wasStance:false,previousU:0});
  }
  const clothing=[];
  const roleColors={ed7541:'jacket',ff9e60:'trim',f6864c:'trim','294d65':'pants','365b72':'pants',edb84e:'accent'};
@@ -77,26 +114,97 @@ function createRunner(parent){
   }
  }
  let palette='';
- function update(p){
-  const {x=0,y=0,z=0,t=0,phase=t*8,idle=false,jump=false,velocity=0,slide=0,bank=0,landing=0,riding=false,finish=0,skin,boots=false}=p;
-  root.position.set(x,y+(riding?.36:0),z);root.rotation.y=p.angle||0;root.rotation.z=-bank*.18;
-  const crouch=Math.max(slide,finish*.65),bob=(idle?Math.sin(t*2)*.012:jump?0:Math.abs(Math.cos(phase))*.038)*(1-crouch);
-  hips.position.y=.85-crouch*.42-landing*.10+bob;torso.rotation.x=crouch*1.30+(jump?-.12:.08);
-  head.rotation.y=idle?Math.sin(t*.65)*.24:-bank*.16;head.rotation.x=jump?-.08:Math.sin(t*2)*.025;
-  const stride=(idle?0:jump?.12:riding?0:.67)*(1-crouch);
-  for(const {leg,knee,shoe,shin,side} of legs){
-   const wave=Math.sin(phase+(side<0?0:Math.PI));
-   leg.rotation.x=wave*stride-(jump?.55:0)-crouch*1.2-(riding?1.1:0);
-   knee.rotation.x=Math.max(0,-wave)*stride*1.2+(jump?.8:0)+crouch*2.2+(riding?1.45:0);
-   shoe.rotation.x=-knee.rotation.x*.20-crouch*.56;shin.material=material(boots?'#419ed8':'#365b72');
-  }
-  for(const {arm,elbow,side} of arms){arm.rotation.x=-Math.sin(phase+(side<0?0:Math.PI))*stride*.7-(jump?.45:0)-(riding?.65:0);arm.rotation.z=side*(.10+crouch*.28);elbow.rotation.x=-.45-crouch*.6-(jump?.45:0);}
-  if(skin&&skin.jacket!==palette){
-   for(const {node,role} of clothing)node.material=material('#'+skin[role]);
-   palette=skin.jacket;
-  }
-  for(const [kind,accessory] of outfits)accessory.visible=skin?.kind===kind;
+ const smooth=v=>{v=Math.min(1,Math.max(0,v));return v*v*(3-2*v)};
+ const mix=(a,b,t)=>a+(b-a)*t;
+ const stains=J(torso,'flowStains',0,0,0);
+ for(let i=0;i<11;i++){const z=i%2?.18:-.20;E(stains,i%3?'#65432e':'#80623e',Math.sin(i*4)*.21,.12+(i%4)*.105,z,.035+(i%3)*.012,.025+(i%2)*.035,.018);}
+ stains.visible=false;
+ const inverseRoot=new T.Matrix4(),localMatrix=new T.Matrix4(),point=new T.Vector3();
+ function groundRoll(){
+  root.updateWorldMatrix(true,true);inverseRoot.copy(root.matrixWorld).invert();let bottom=Infinity;
+  root.traverseVisible(node=>{
+   if(!node.isMesh)return;localMatrix.multiplyMatrices(inverseRoot,node.matrixWorld);
+   if(node.isSkinnedMesh){
+    node.skeleton.update();for(let i=0;i<node.geometry.attributes.position.count;i+=11){node.getVertexPosition(i,point);point.applyMatrix4(localMatrix);bottom=Math.min(bottom,point.y);}
+   }else if(node.geometry.type==='SphereGeometry'){
+    const m=localMatrix.elements;bottom=Math.min(bottom,m[13]-Math.hypot(m[1],m[5],m[9]));
+   }
+  });
+  if(Number.isFinite(bottom))somersault.position.y+=.008-bottom;
  }
+ function solveLeg(limb,footY,footZ,footX=0){
+  const upper=.45,lower=.43,d=Math.min(upper+lower-.002,Math.max(.08,Math.hypot(footY,footZ)));
+  const bend=Math.PI-Math.acos(Math.min(1,Math.max(-1,(upper*upper+lower*lower-d*d)/(2*upper*lower))));
+  limb.leg.rotation.x=Math.atan2(-footZ,-footY)-Math.atan2(lower*Math.sin(bend),upper+lower*Math.cos(bend));
+  limb.knee.rotation.x=bend;limb.leg.rotation.z=Math.atan2(footX,-footY);
+  limb.shoe.rotation.x=-limb.leg.rotation.x-bend;
+ }
+ function update(p){
+  const {x=0,y=0,z=0,t=0,phase=t*17,idle=false,jump=false,velocity=0,slide=0,bank=0,landing=0,riding=false,finish=0,skin,boots=false,dirty=false,distance=0,speed=16}=p;
+  const effort=Math.min(1,Math.max(0,(speed-13)/8)),stage=effort<.33?0:effort<.70?1:2;
+  const cadence=[14.5,17.5,21][stage],stride=[.40,.48,.56][stage];
+  const crouch=Math.max(slide,finish*.65),rolling=slide>0&&p.roll!==undefined&&p.roll>0&&p.roll<1;
+  const progress=rolling?p.roll:0,tuck=rolling?Math.min(smooth(progress/.13),smooth((1-progress)/.16)):0;
+  root.position.set(x,y+(riding?.36:0),z);root.rotation.y=p.angle||0;root.rotation.z=-bank*.10;
+  somersault.position.set(tuck*.055,tuck*.50,0);
+  somersault.rotation.set(rolling?Math.PI*2*smooth((progress-.13)/.68):0,0,rolling?Math.sin(progress*Math.PI)*.16:0);
+  const bob=idle?Math.sin(t*2)*.009:jump?0:Math.sin(phase*2)*.017;
+  const normalHip=idle?.98:.85-stage*.04+bob-landing*.065;
+  hips.position.set(0,mix(normalHip-crouch*.42,-.025,tuck),-.40*tuck);
+  hips.rotation.y=idle?0:Math.sin(phase)*.045*(1-crouch);hips.rotation.z=idle?0:Math.sin(phase)*.016*(1-crouch);
+  torso.rotation.x=mix(crouch*1.30+(idle?0:jump?-.10:.14+stage*.045),1.47,tuck);
+  torso.rotation.y=idle?0:-Math.sin(phase)*.075*(1-crouch);torso.rotation.z=-bank*.055*(1-crouch);
+  head.rotation.y=idle?Math.sin(t*.65)*.18:-bank*.11;
+  head.rotation.x=rolling?.36:jump?-.12:-(torso.rotation.x*.22);
+  hips.scale.setScalar(mix(1,.84,tuck));
+  for(const limb of legs){
+   const {leg,knee,shoe,shin,side}=limb;
+   if(rolling){
+    leg.rotation.set(mix(-1.3,-2.05,tuck),0,side*.06);knee.rotation.x=mix(2.5,2.72,tuck);shoe.rotation.x=-leg.rotation.x-knee.rotation.x;
+   }else if(crouch>.05){
+    leg.rotation.set(-1.3*crouch,0,side*.025);knee.rotation.x=2.5*crouch;shoe.rotation.x=-leg.rotation.x-knee.rotation.x;
+   }else if(riding){leg.rotation.set(-1.2,0,side*.25);knee.rotation.x=1.8;shoe.rotation.x=-.6;
+   }else if(jump){
+    const float=smooth(1-Math.min(1,Math.abs(velocity)/8.25));
+    leg.rotation.set(-.65-float*.65+(side<0?.10:-.10),0,side*.04);knee.rotation.x=1.2+float*.85;shoe.rotation.x=-.35;
+   }else if(idle){solveLeg(limb,-.88,side*.025);limb.wasStance=false;
+   }else{
+    const u=((phase/(Math.PI*2)+(side<0?0:.5))%1+1)%1;
+    // Ground contact has a fixed world anchor. The stance duration decreases
+    // with speed, so the leg never needs an impossible multi-metre extension.
+    const stance=Math.min(.32,2*stride/Math.max(1,speed)*cadence/(Math.PI*2));
+    const planted=u<stance;
+    let footZ,footY;
+    if(planted){
+     if(!limb.wasStance||u<limb.previousU)limb.anchor=distance+stride-speed*u/(cadence/(Math.PI*2));
+     footZ=p.distance===undefined?stride*(1-2*u/stance):Math.max(-stride-.05,Math.min(stride+.05,limb.anchor-distance));
+     footY=.105;
+    }else{
+     const swing=(u-stance)/(1-stance),arc=Math.sin(swing*Math.PI);
+     footZ=mix(-stride,stride,smooth(swing));footY=.105+Math.pow(Math.max(0,arc),1.2)*(.30+stage*.055);
+    }
+    solveLeg(limb,footY-hips.position.y,footZ,-bank*.07+side*.008*Math.sin(phase));
+    // Heel lift at toe-off; the sole is horizontal during the planted phase.
+    shoe.rotation.x+=planted?-.12*smooth((u/stance-.7)/.3):-.18*Math.sin((u-stance)/(1-stance)*Math.PI);
+    limb.wasStance=planted;limb.previousU=u;
+   }
+   shin.material=material(boots?'#419ed8':'#'+(skin?.pants||'294d65'));
+  }
+  for(const {arm,elbow,wrist,hand,side} of arms){
+   const wave=Math.sin(phase+(side<0?0:Math.PI));
+   arm.rotation.set(idle?.04:-wave*(.64+stage*.10)-(jump?.5:0)-(riding?.65:0),0,side*.085-bank*.04);
+   elbow.rotation.x=idle?-.15:-1.05-.24*Math.cos(phase+(side<0?0:Math.PI));
+   wrist.rotation.set(.07,side*.08,side*.10);hand.rotation.x=.12;
+   if(crouch>.05){arm.rotation.x=mix(arm.rotation.x,-.70,crouch);elbow.rotation.x=mix(elbow.rotation.x,-2.0,crouch);}
+  }
+  if(skin&&skin.jacket!==palette){for(const {node,role} of clothing)node.material=material('#'+skin[role]);palette=skin.jacket;}
+  for(const [kind,accessory] of outfits)accessory.visible=skin?.kind===kind;
+  stains.visible=dirty;
+  if(rolling)groundRoll();
+  // Exposed for animation authoring and regression checks, never a gameplay lock.
+  root.userData.motionStage=stage;root.userData.rolling=rolling;
+ }
+
  return {root,update};
 }
 function createMarsCat(parent){
