@@ -26,6 +26,10 @@ test('first flow hit dirties and slows the runner; a second distinct hit ends th
  run('grace=0;flows.push({a:0,front:distance-.1,size:8,trigger:0,passed:false,kind:"surge",top:1.8});tick(1/120)');
  assert.equal(run('state'),'lost');
 });
+test('each approaching flow spawns entirely within its own sewer section',()=>{
+ const {run}=game();run('start()');
+ assert.ok(run(`flows.every(f=>{const section=buildShowcaseRoute().sewers.find(s=>f.target>=s.start&&f.target<=s.end);const front=f.trigger+f.frontOffset;return section&&front>=section.start&&front+f.size<=section.end})`));
+});
 test('landing on a flow supports the feet without counting as a frontal hit',()=>{
  const {run}=game();run('start();trains=[];items=[];flows=[{a:0,front:0,size:12,trigger:0,passed:false,kind:"surge",top:1.8}];height=1.9;velocity=-2;for(let i=0;i<8;i++)tick(1/120)');
  assert.equal(run('state'),'run');assert.equal(run('flowHits'),0);assert.ok(Math.abs(run('height')-1.8)<.02);

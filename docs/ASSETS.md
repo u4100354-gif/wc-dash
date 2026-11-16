@@ -1,4 +1,4 @@
-# WC Dash 6.0: assets and tools
+# WC Dash 6.1: assets and tools
 
 All character meshes, articulated animation logic, trains, station props and sign
 textures in this version were authored for this project. No paid asset packs or
@@ -6,11 +6,14 @@ Subway Surfers assets are included.
 
 - Three.js **0.187.0**, MIT: `vendor/three/`. License is included beside the files.
 - Runtime models and poses: `characters.js`; railway environment: `environment.js`.
-- Editable exchange models: `assets/models/denis.glb` (Run, Idle, Jump, Slide, Ride)
+- Editable exchange models: `assets/models/denis.glb` (Run, FastRun, Sprint, Idle, Jump, ShoulderRoll, Ride)
   and `assets/models/mars.glb` (TailSway).
-- The runtime currently animates the original mesh hierarchy directly. The GLB
-  files are exports for Blender and other editors, rather than separately authored
-  skinned characters. No automatic photo-to-3D reconstruction is claimed.
+- Denis has four continuous skinned limb surfaces, each controlled by a three-bone
+  chain with blended joint weights. Runtime motion includes foot placement, speed
+  stages, cross steps and ground contact for a full shoulder roll. The GLB exports
+  include the bones and 60 Hz animation tracks for Blender editing.
+- The runtime animates the authored hierarchy directly; exchange GLBs are rebuilt
+  from that same source. No automatic photo-to-3D reconstruction is claimed.
 - The cat design uses the supplied photographs as a visual reference: pale cream
   coat, large ruff, pink nose, long tufted ears and a long bushy tail.
 - Original photos are stored only in `D:\WC-Dash\references\Mars`, outside Git.
@@ -44,3 +47,7 @@ ES modules require an HTTP origin.
 Denis currently has an original stylized appearance, since no human reference
 photos were supplied. A future sculpt and skinning pass can refine the face,
 silhouette, clothes, cat anatomy and authored animation timing in Blender.
+
+OrbitControls from the same Three.js 0.187.0 package is vendored under its MIT
+license for the inspection camera. Development freeze uses a separate simulation
+clock: mouse camera changes do not advance gameplay, cosmetic time or timers.

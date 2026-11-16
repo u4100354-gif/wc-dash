@@ -21,11 +21,11 @@ function buildShowcaseRoute() {
  const sewers=showcaseSewerSections;
  const flowEncounters=[
   {target:152,a:0,kind:'sludge',top:1.25,size:11,incomingSpeed:7},
-  {target:180,a:2.2,kind:'surge',top:1.8,size:8,incomingSpeed:10},
+  {target:169,a:2.2,kind:'surge',top:1.8,size:8,incomingSpeed:10},
   {target:306,a:-2.2,kind:'foam',top:1.48,size:15,incomingSpeed:6},
-  {target:336,a:2.2,kind:'sludge',top:1.25,size:11,incomingSpeed:7},
+  {target:324,a:2.2,kind:'sludge',top:1.25,size:11,incomingSpeed:7},
   {target:464,a:0,kind:'surge',top:1.8,size:8,incomingSpeed:10},
-  {target:498,a:-2.2,kind:'foam',top:1.48,size:15,incomingSpeed:6},
+  {target:491,a:-2.2,kind:'foam',top:1.48,size:15,incomingSpeed:6},
   {target:638,a:2.2,kind:'sludge',top:1.25,size:11,incomingSpeed:7},
   {target:677,a:0,kind:'surge',top:1.8,size:8,incomingSpeed:10}
  ];
@@ -38,4 +38,4 @@ function sewerBlendAt(z){
 function advanceShowcaseTraffic(cars,dt,distance) {
  for (const car of cars) if(car.incomingSpeed && distance>=car.trigger) car.z-=car.incomingSpeed*dt;
 }
-if(typeof module!=='undefined') module.exports={buildShowcaseRoute,advanceShowcaseTraffic};
+if(typeof module!=='undefined') module.exports={buildShowcaseRoute,advanceShowcaseTraffic,sewerAt,sewerBlendAt};

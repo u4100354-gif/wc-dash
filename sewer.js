@@ -5,9 +5,9 @@ function drawSewerFlow(stage,flow,front,t){
  const top=flow.top??1.48,a=flow.a,kind=flow.kind||'sludge';
  const colors=kind==='foam'?['705035','967045','dbc581']:kind==='surge'?['49372b','765034','b38a4d']:['64432b','926038','bd8c4d'];
  for(let n=.5;n<flow.size;n+=.7){
-  const ripple=Math.sin(n*2.3-t*5)*.035,edge=Math.min(1,n/1.5,(flow.size-n)/1.5);
+  const ripple=Math.sin(n*2.3-t*5)*.035;
   // The deck is broad and continuous, with an animated organic skirt.
-  box(a,top*.53,front+n,1.75,top*.85,.84,colors[0]);
+  ball(a,top*.48,front+n,1.88,top*.97,1.28,colors[0]);
   ball(a,top-.10,front+n,1.86,.24,.95,colors[1]);
   for(const side of [-1,1])ball(a+side*(.70+ripple),top*.44,front+n,.52,top*.91,.96,colors[0]);
   if(kind==='foam'||n%2<.8)for(let j=0;j<3;j++){

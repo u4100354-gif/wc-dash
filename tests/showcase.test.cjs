@@ -41,3 +41,9 @@ test('traffic advances only after its warning point and keeps its length', () =>
   assert.equal(cars[0].z,96);
   assert.equal(cars[0].deck,18);
 });
+test('sewer atmosphere fades at the entrance and exit, leaving stations outside',()=>{
+ assert.equal(context.sewerAt(100),false);assert.equal(context.sewerAt(150),true);
+ assert.equal(context.sewerBlendAt(100),0);assert.equal(context.sewerBlendAt(130),0);
+ assert.equal(context.sewerBlendAt(133.5),.5);assert.equal(context.sewerBlendAt(150),1);
+ assert.equal(context.sewerBlendAt(196),0);
+});
