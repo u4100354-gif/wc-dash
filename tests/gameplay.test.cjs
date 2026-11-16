@@ -39,6 +39,14 @@ test('development freeze preserves HUD/game state and steps exactly one 60 Hz fr
  const d=run('distance');run('frame(4000)');assert.equal(run('distance'),d);
  run('toggleInspection();frame(4016)');assert.ok(run('distance')>d);
 });
+test('jump interrupts a roll immediately, without an animation lock',()=>{
+ const {run}=game();run('start();move("down");for(let i=0;i<20;i++)tick(1/120);move("up");tick(1/120)');
+ assert.ok(run('height')>0);assert.ok(run('velocity')>0);assert.equal(run('rollAge'),-1);
+});
+test('coins riding a flow are collected from its roof once',()=>{
+ const {run}=game();run('start();trains=[];items=[];flows=[{a:0,front:0,size:12,top:1.8,trigger:0,tokens:[{offset:.25,done:false}]}];height=1.8;velocity=0;tick(1/120);tick(1/120)');
+ assert.equal(run('coins'),1);assert.equal(run('flowHits'),0);
+});
 test('new route is wired into the playable first level',()=>{
  const {run}=game();run('start()');
  assert.equal(run('length'),720);assert.equal(run('new Set(trains.map(t=>t.kind)).size'),3);

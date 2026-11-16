@@ -67,3 +67,28 @@ test('down action performs a full shoulder roll instead of just leaning the tors
  assert.ok(Math.abs(pivot.rotation.x)>2,'body must actually turn over');
  hero.update({slide:0,roll:0,t:.9,phase:0});assert.ok(Math.abs(pivot.rotation.x)<1e-6);
 });
+test('planted foot stays at the same world position while the body advances',async()=>{
+ const {ctx,three}=await setup();const root=new three.Group(),hero=ctx.createRunner(root),points=[];
+ for(let i=0;i<10;i++){
+  const t=i/240;hero.update({t,phase:t*17.5,speed:17,distance:t*17});root.updateMatrixWorld(true);
+  const foot=root.getObjectByName('leftShoe').getWorldPosition(new three.Vector3());points.push([foot.z+t*17,foot.y]);
+ }
+ assert.ok(Math.max(...points.map(p=>p[0]))-Math.min(...points.map(p=>p[0]))<.035);
+ assert.ok(points.every(p=>p[1]>.08&&p[1]<.13),'ankle stays above its supporting sole');
+});
+test('three speed ranges choose different sprint stages',async()=>{
+ const {ctx,three}=await setup(),hero=ctx.createRunner(new three.Group());
+ for(const [speed,stage] of [[13,0],[17,1],[21,2]]){hero.update({speed,phase:1});assert.equal(hero.root.userData.motionStage,stage);}
+});
+test('complete rolling motion stays close to the supporting ground and below the clearance',async()=>{
+ const {ctx,three}=await setup(),root=new three.Group(),hero=ctx.createRunner(root),point=new three.Vector3();
+ for(let frame=3;frame<=17;frame++){
+  hero.update({slide:1,roll:frame/20,phase:0});root.updateMatrixWorld(true);let min=Infinity,max=-Infinity;
+  root.traverseVisible(node=>{
+   if(!node.isMesh)return;if(node.isSkinnedMesh)node.skeleton.update();
+   for(let i=0;i<node.geometry.attributes.position.count;i+=3){node.getVertexPosition(i,point);point.applyMatrix4(node.matrixWorld);min=Math.min(min,point.y);max=Math.max(max,point.y);}
+  });
+  assert.ok(min>=-.065&&min<.06,`ground contact at ${frame}: ${min}`);
+  assert.ok(max<1.08,`clearance at ${frame}: ${max}`);
+ }
+});
