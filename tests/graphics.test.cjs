@@ -43,3 +43,10 @@ test('cream cat has an articulated plume, long tufted ears and reference-colored
  assert.ok(root.getObjectByName('tailJoint5'));
  root.updateMatrixWorld(true);root.traverse(o=>assert.ok(o.matrixWorld.elements.every(Number.isFinite)));
 });
+test('slide model fits beneath the same low clearance used by the collision system',async()=>{
+ const {ctx,three}=await setup();const root=new three.Group(),hero=ctx.createRunner(root);
+ hero.update({slide:1,t:0,phase:0});root.updateMatrixWorld(true);
+ const box=new three.Box3().setFromObject(root);
+ assert.ok(box.max.y<=1.10,`head must clear the bar: ${box.max.y}`);
+ assert.ok(box.min.y>=-.08,`feet must stay above the ground: ${box.min.y}`);
+});
