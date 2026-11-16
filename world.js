@@ -240,7 +240,7 @@ function createWorld(canvas) {
    box(-3.40,4.84,z,.19,.19,5.03,'a76c49');box(-3.12,4.86,z,.12,.12,5.03,'c89462');
   }
  }
- function render(){
+ function render(wallDt=1/60){
   const w=canvas.clientWidth,h=canvas.clientHeight,ratio=Math.min(devicePixelRatio||1,w<680?2:1.75);
   if(canvas.width!==Math.round(w*ratio)||canvas.height!==Math.round(h*ratio)){canvas.width=Math.round(w*ratio);canvas.height=Math.round(h*ratio)}
   const menu=state==='menu',mobile=w<680,t=menu?clock:elapsed,d=menu?0:distance;
@@ -312,7 +312,7 @@ function createWorld(canvas) {
    const k=1-age/.43,sz=.082*k;
    box(e.x+e.vx*age,e.y+e.vy*age-3.5*age*age,e.z-d+e.vz*age,sz,sz*1.6,sz,e.color,age*6,age*4)
   }
-  stage.draw({w,h,f,eye,yaw,pitch,offsetX,offsetY});
+  stage.draw({w,h,f,eye,yaw,pitch,offsetX,offsetY,wallDt});
  }
  render.engine='three.js';render.stage=stage;
  return render;

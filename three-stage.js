@@ -57,7 +57,7 @@ function createThreeStage(canvas) {
  }
  const box=(...args)=>put(cube,...args),round=(...args)=>put(puck,...args);
  let lastW=0,lastH=0,lastRatio=0;
- function draw({w,h,f,eye,yaw,pitch,offsetX,offsetY}){
+ function draw({w,h,f,eye,yaw,pitch,offsetX,offsetY,wallDt=1/60}){
   const ratio=Math.min(typeof devicePixelRatio==='number'?devicePixelRatio:1,2.5);
   if(w!==lastW||h!==lastH||ratio!==lastRatio){renderer.setPixelRatio(ratio);renderer.setSize(w,h,false);lastW=w;lastH=h;lastRatio=ratio;}
   camera.aspect=w/h;camera.fov=T.MathUtils.radToDeg(2*Math.atan(h/(2*f)));camera.updateProjectionMatrix();
@@ -66,7 +66,7 @@ function createThreeStage(canvas) {
   if(!inspection.active){
    camera.position.set(eye[0],eye[1],-eye[2]);
    camera.lookAt(eye[0]+Math.sin(yaw)*Math.cos(pitch),eye[1]-Math.sin(pitch),-eye[2]-Math.cos(yaw)*Math.cos(pitch));
-  }else inspection.update();
+  }else inspection.update(wallDt);
   for(const sh of shapes){sh.mesh.count=sh.used;sh.mesh.instanceMatrix.needsUpdate=true;if(sh.mesh.instanceColor)sh.mesh.instanceColor.needsUpdate=true;}
   renderer.render(scene,camera);
  }

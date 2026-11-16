@@ -175,7 +175,7 @@ function course(){
  function gear(type,z,a){if(level===0){const free=[a,0,-2.2,2.2].find(l=>!trains.some(c=>c.a===l&&z>=c.z-5&&z<=trainEnd(c)+5));if(free===undefined)return;a=free}add(type,z,a,railFloor(trains,z,a))}
  for(const [type,z,a] of [['magnet',7,0],['magnet',238,-2.2]])gear(type,z,a);
  for(let z=54;z<length;z+=546)gear('boots',z,0);
- for(let z=level?106:119;z<length-155;z+=1044)gear('wings',z,0);
+ for(let z=level?106:520;z<length-155;z+=1044)gear('wings',z,0);
  if(level)for(let i=3;i<14;i+=6)gear('magnet',i*116+4,2.2*([0,1,-1][i%3]));
  for(let z=75;z<length-10;z+=120){
   const trail=railTrail(trains.filter(c=>!c.incomingSpeed),z);add('key',z,trail?.a??0,railFloor(trains,z,trail?.a??0))
@@ -373,9 +373,9 @@ function tick(dt){
  if(distance===length){height=slide=ground=cameraLift=0;stumbleTime=0;finishFrom=x;poseSlide=poseBank=landing=0;diving=false;state='finish';$('toast').textContent='';ui()}
 }
 let prev=0;
-function frame(ms){const dt=devClock.advance(Math.min(.07,(ms-(prev||ms))/1000));prev=ms;clock+=dt;
+function frame(ms){const wallDt=Math.min(.07,(ms-(prev||ms))/1000),dt=devClock.advance(wallDt);prev=ms;clock+=dt;
  if(state==='run'||state==='finish'){let rest=dt;while(rest>0&&(state==='run'||state==='finish')){const step=Math.min(rest,1/120);tick(step);rest-=step}status()}
- render3D();requestAnimationFrame(frame)}
+ render3D(wallDt);requestAnimationFrame(frame)}
 $('restart').onclick=start;$('catButton').onclick=()=>{activateCat();status()};
 $('start').onclick=start;$('action').onclick=()=>{if(state==='pause'){try{soundscape.init()}catch{}state='run';ui()}else {if(state==='win'&&level===0)chooseRoute(1);start()}};$('pause').onclick=pause;$('home').onclick=()=>{state='menu';height=slide=0;ui()};
 $('mute').onclick=()=>{mute=!mute;try{soundscape.init()}catch{}
@@ -408,7 +408,8 @@ canvas.addEventListener('pointermove',swipe);canvas.addEventListener('pointerup'
  }
  pointer=null
 });canvas.addEventListener('lostpointercapture',()=>pointer=null);
-addEventListener('blur',()=>{if(!devClock.frozen)pause()});document.addEventListener('visibilitychange',()=>{if(document.hidden&&!devClock.frozen)pause()});
+addEventListener('keyup',e=>render3D.stage?.inspection?.release(e.code));
+addEventListener('blur',()=>{render3D.stage?.inspection?.clear();if(!devClock.frozen)pause()});document.addEventListener('visibilitychange',()=>{if(document.hidden){render3D.stage?.inspection?.clear();if(!devClock.frozen)pause()}});
 $('devStep').onclick=()=>devClock.requestStep();$('devResume').onclick=toggleInspection;
 $('inspect').onclick=toggleInspection;
 $('hint').textContent=navigator.maxTouchPoints?'Свайпай по экрану':'Стрелки или WASD';
