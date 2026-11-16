@@ -10,7 +10,7 @@ async function setup(){
   setPixelRatio(){} setSize(){} render(scene,camera){scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);}
  }
  const ctx=vm.createContext({THREE:{...three,WebGLRenderer:Renderer},devicePixelRatio:1,console,Math});
- for(const file of ['three-stage.js','characters.js','world.js'])if(fs.existsSync(file))vm.runInContext(fs.readFileSync(file,'utf8'),ctx);
+ for(const file of ['inspector.js','three-stage.js','characters.js','world.js'])if(fs.existsSync(file))vm.runInContext(fs.readFileSync(file,'utf8'),ctx);
  return {ctx,three};
 }
 test('existing game world uses the Three.js backend',async()=>{
@@ -91,4 +91,14 @@ test('complete rolling motion stays close to the supporting ground and below the
   assert.ok(min>=-.065&&min<.06,`ground contact at ${frame}: ${min}`);
   assert.ok(max<1.08,`clearance at ${frame}: ${max}`);
  }
+});
+test('inspection camera moves smoothly while a key is held and stops on release',async()=>{
+ const {ctx,three}=await setup();
+ ctx.OrbitControls=class{constructor(){this.target=new three.Vector3()}update(){}};
+ const camera=new three.PerspectiveCamera();camera.position.set(0,2,6);camera.lookAt(0,1,0);
+ const inspect=ctx.createCameraInspector(camera,{});inspect.setActive(true);
+ const initial=camera.position.clone();inspect.move('KeyW');inspect.update(.25);inspect.update(.25);
+ assert.ok(camera.position.distanceTo(initial)>1,'holding must move on each frame');
+ assert.equal(typeof inspect.release,'function');inspect.release('KeyW');
+ const stopped=camera.position.clone();inspect.update(.25);assert.ok(camera.position.distanceTo(stopped)<1e-8);
 });
