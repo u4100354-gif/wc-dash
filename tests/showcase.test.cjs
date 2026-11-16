@@ -1,10 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const vm = require('node:vm');
-const context = vm.createContext({});
-const source = fs.existsSync('showcase.js') ? fs.readFileSync('showcase.js', 'utf8') : '';
-vm.runInContext(source, context);
+const context = fs.existsSync('showcase.js') ? require('../showcase.js') : {};
 function route() {
   assert.equal(typeof context.buildShowcaseRoute, 'function', 'A playable showcase route must be available');
   return context.buildShowcaseRoute();
