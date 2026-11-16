@@ -1,0 +1,14 @@
+import * as THREE from './vendor/three/three.module.js';
+import {RoundedBoxGeometry} from './vendor/three/RoundedBoxGeometry.js';
+window.THREE=THREE;window.RoundedBoxGeometry=RoundedBoxGeometry;
+const scripts=['showcase','trains','three-stage','characters','environment','world','sound','endless','shop','game'];
+try {
+ for(const name of scripts) await new Promise((resolve,reject)=>{
+  const script=document.createElement('script');script.src=`${name}.js?v=6.0`;
+  script.onload=resolve;script.onerror=()=>reject(new Error(`Не удалось загрузить ${name}.js`));document.body.append(script);
+ });
+} catch(error){
+ console.error(error);
+ const summary=document.getElementById('summary');summary.textContent='Не удалось запустить игру. '+error.message;
+ document.getElementById('start').disabled=true;
+}

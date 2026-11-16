@@ -47,6 +47,6 @@ test('slide model fits beneath the same low clearance used by the collision syst
  const {ctx,three}=await setup();const root=new three.Group(),hero=ctx.createRunner(root);
  hero.update({slide:1,t:0,phase:0});root.updateMatrixWorld(true);
  const box=new three.Box3().setFromObject(root);
- assert.ok(box.max.y<=1.10,`head must clear the bar: ${box.max.y}`);
+ assert.ok(box.max.y<=1.04,`head must clear the bar: ${box.max.y}`);
  assert.ok(box.min.y>=-.08,`feet must stay above the ground: ${box.min.y}`);
 });

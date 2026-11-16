@@ -6,7 +6,7 @@ function createThreeStage(canvas) {
  const renderer=new T.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});
  renderer.outputColorSpace=T.SRGBColorSpace;
  renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.18;
- renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;
+ renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFShadowMap;
  const scene=new T.Scene();scene.background=new T.Color('#81cbe3');scene.fog=new T.Fog('#b9dfdf',48,135);
  const content=new T.Group();content.scale.z=-1;scene.add(content);
  const camera=new T.PerspectiveCamera(55,1,.08,240);
@@ -39,6 +39,7 @@ function createThreeStage(canvas) {
  }
  const cube=shape(typeof RoundedBoxGeometry==='function'?new RoundedBoxGeometry(1,1,1,2,.055):new T.BoxGeometry(1,1,1));
  const puck=shape(new T.CylinderGeometry(.5,.5,1,24));
+ const sphere=shape(new T.SphereGeometry(.5,24,16));
  const profile=[[0,0],[.25,.035],[.34,.2],[.49,.75],[.50,.88],[.46,1],[.38,.98],[.34,.72],[.15,.40],[0,.39]];
  const bowl=shape(new T.LatheGeometry(profile.map(([r,y])=>new T.Vector2(r,y)),32));
  function put(sh,a,b,z,sx,sy,sz,col,ry=0,rx=0,roll=0){
@@ -59,5 +60,5 @@ function createThreeStage(canvas) {
   for(const sh of shapes){sh.mesh.count=sh.used;sh.mesh.instanceMatrix.needsUpdate=true;if(sh.mesh.instanceColor)sh.mesh.instanceColor.needsUpdate=true;}
   renderer.render(scene,camera);
  }
- return {scene,content,camera,renderer,shapes,cube,puck,bowl,put,box,round,draw};
+ return {scene,content,camera,renderer,shapes,cube,puck,sphere,bowl,put,box,round,draw};
 }

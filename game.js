@@ -1,7 +1,7 @@
 'use strict';
 const $=id=>document.getElementById(id), canvas=$('screen');
-let level=0,length=360;
-const routes=[{name:'Солнечный переход',meters:360},{name:'Большой коллектор',meters:1800},{name:'Марафон',meters:Infinity}];
+let level=0,length=720;
+const routes=[{name:'Солнечное депо',meters:720},{name:'Большой коллектор',meters:1800},{name:'Марафон',meters:Infinity}];
 const ease=v=>{const t=Math.max(0,Math.min(1,v));return t*t*(3-2*t)};
 const words=['ЛИФТ','МАРС','УСПЕЛ'], clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
 let bootsTime=0,settled=false,paidCoins=0,revived=false,cleanStart=0,missionDone=false;
@@ -11,7 +11,7 @@ let best=0,mute=false;
 try{best=Number(localStorage.wcDashBest)||0;mute=localStorage.wcDashMuted==='yes'}catch{}
 let state='menu',distance=0,lane=0,x=0,height=0,velocity=0,slide=0,coins=0,completed=0,letters=[],items=[],stamp=0,noticeUntil=0,clock=0,elapsed=0,toiletTime=0;
 let poseSlide=0,poseBank=0,landing=0,flecks=[],runCycle=0,diving=false;
-const sections=['Вестибюль','Стеклянная галерея','Зимний сад'];
+const sections=['Солнечное депо','Экспресс-платформа','Грузовая станция'];
 function scatter(a,b,z,color){
  flecks=flecks.filter(e=>elapsed-e.at<.43);
  for(let i=0;i<8;i++){const angle=i*Math.PI/4+.4;flecks.push({at:elapsed,x:a,y:b,z,vx:Math.cos(angle)*1.6,vy:1+i%3*.58,vz:Math.sin(angle)*1.6+6,color})}
@@ -24,9 +24,10 @@ function chooseRoute(index){
  level=index;length=routes[index].meters;
  document.querySelectorAll('[data-route]').forEach((b,i)=>b.setAttribute('aria-pressed',String(i===index)));
  $('best').textContent=index===2?profile.meters+' м':best;
- $('summary').textContent=index===2?'Парк, рынок и вокзал. Каждые 1 000 м появляется слово. Рекорд марафона — '+profile.meters+' м.':index?'1 800 м по открытым путям. Вагоны, крыши и потоки. Следи за подсказками на трассе.':'360 м от лифта до WC. Собирай буквы и монетки кота Марса.';
+ $('summary').textContent=index===2?'Парк, рынок и вокзал. Каждые 1 000 м появляется слово. Рекорд марафона — '+profile.meters+' м.':index?'1 800 м по открытым путям. Вагоны, крыши и потоки. Следи за подсказками на трассе.':'720 м · около 43 секунд. Электрички, экспрессы и грузовые вагоны. До туалета через всё депо!';
 }
 function prepareRoute(){
+ if(level===0){trains=buildShowcaseRoute().trains;flows=[];warning='';firstNearby=0;return}
  const starts=level?Array.from({length:15},(_,i)=>36+116*i):[56,130,201,273];
  trains=starts.flatMap((z,i)=>trainGroup(z,[1,-1,0,1,0,-1][i%6],i%2?-1:1));
  // Meet each wave in a road gap; its whole visible path uses a clear lane.
@@ -121,10 +122,10 @@ function advanceFlight(support){
 function course(){
  const list=[],add=(type,z,a,y=0)=>list.push({type,z,a,y});
  // Each pattern has an optional challenge lane and two passing lanes.
- const challenges=level?Array.from({length:15},(_,i)=>[[14+i*116,(i%3)-1,i%2?'hurdle':'crate'],[27+i*116,((i+1)%3)-1,i%2?'bar':'hurdle']]).flat():[[22,0,'crate'],[43,-1,'hurdle'],[118,1,'bar'],[192,-1,'crate'],[263,0,'hurdle'],[341,0,'bar']];
+ const challenges=level?Array.from({length:15},(_,i)=>[[14+i*116,(i%3)-1,i%2?'hurdle':'crate'],[27+i*116,((i+1)%3)-1,i%2?'bar':'hurdle']]).flat():buildShowcaseRoute().obstacles.map(it=>[it.z,it.a/2.2,it.type]);
  for(const [z,lane,type] of challenges)add(type,z,lane*2.2);
  // Walls on the outer routes guide the player towards the incoming stream.
- const requiredTargets=level?[100]:[193];
+ const requiredTargets=level?[100]:[];
  for(const meeting of requiredTargets){
   const wave=flows.filter(f=>f.trigger<meeting&&meeting-f.trigger<30).at(-1);
   if(!wave)continue;
@@ -134,7 +135,7 @@ function course(){
 
  for(let z=5;z<length-9;z+=2){
   const near=challenges.find(([at])=>Math.abs(at-z)<=speedAt(at)*jumpHalfTime);
-  const trail=railTrail(trains,z);
+  const trail=railTrail(trains.filter(c=>!c.incomingSpeed),z);
   if(trail){add('poo',z,trail.a,trail.y);continue}
   if(near&&challenges.indexOf(near)%4!==3){const [at,l,type]=near,u=(z-at)/(speedAt(at)*jumpHalfTime);
    const y=type==='crate'?.64+jumpApex*Math.max(0,1-u*u):Math.abs(z-at)<4?.34:.64;
@@ -142,16 +143,16 @@ function course(){
   add('poo',z,[0,0,-2.2,0,2.2,2.2][Math.floor(z/9)%6],.65)
  }
  for(let i=0,z=10;z<length-10;z+=26,i++){
-  const train=trains.find(v=>z>=v.z&&z<=trainEnd(v));
+  const train=trains.find(v=>!v.incomingSpeed&&z>=v.z&&z<=trainEnd(v));
   add('letter',z,train?train.a:[0,-2.2,2.2,0][i%4],train?roofAt(train,z):0)
  }
- function gear(type,z,a){add(type,z,a,railFloor(trains,z,a))}
+ function gear(type,z,a){if(level===0){const free=[a,0,-2.2,2.2].find(l=>!trains.some(c=>c.a===l&&z>=c.z-5&&z<=trainEnd(c)+5));if(free===undefined)return;a=free}add(type,z,a,railFloor(trains,z,a))}
  for(const [type,z,a] of [['magnet',7,0],['magnet',238,-2.2]])gear(type,z,a);
  for(let z=54;z<length;z+=546)gear('boots',z,0);
  for(let z=level?106:119;z<length-155;z+=1044)gear('wings',z,0);
  if(level)for(let i=3;i<14;i+=6)gear('magnet',i*116+4,2.2*([0,1,-1][i%3]));
  for(let z=75;z<length-10;z+=120){
-  const trail=railTrail(trains,z);add('key',z,trail?.a??0,railFloor(trains,z,trail?.a??0))
+  const trail=railTrail(trains.filter(c=>!c.incomingSpeed),z);add('key',z,trail?.a??0,railFloor(trains,z,trail?.a??0))
  }
  return list.sort((a,b)=>a.z-b.z)
 }
@@ -252,6 +253,7 @@ function tick(dt){
  runCycle+=dt*(4.2+clamp((speed()-13)/(marathon()?10:8),0,1)*7.4);
  if(state==='finish'){toiletTime+=dt;x=finishFrom*(1-ease(toiletTime/1.08));if(toiletTime>=5.34)end(true);return}
  if(marathon())extendDistricts();
+ if(level===0)advanceShowcaseTraffic(trains,dt,distance);
  const previousX=x;
  distance=Math.min(length,distance+dt*speed());x+=(lane*2.2-x)*(1-Math.exp(-15*dt));slide=Math.max(0,slide-(diving?0:dt));
  stumbleTime=Math.max(0,stumbleTime-dt);stumbleCooldown=Math.max(0,stumbleCooldown-dt);
@@ -296,6 +298,7 @@ function tick(dt){
   wordKm=Math.floor(distance/1000);kmWordDone=false;letters=[];notice('Слово километра · '+activeWord())
  }
  if(!updateFlows(dt))return;
+ if(level===0&&!flight){const approaching=trains.find(c=>c.incomingSpeed&&c.z-distance>0&&c.z-distance<70);if(approaching){warning='Встречный поезд '+(approaching.a<0?'слева':approaching.a>0?'справа':'по центру')+'!';if(!approaching.warned){approaching.warned=true;soundscape.effect('alarm')}}}
  if(elapsed>noticeUntil)$('toast').textContent='';
  while(firstNearby<items.length&&items[firstNearby].z<distance-rearMargin)firstNearby++;
  for(let i=firstNearby;i<items.length&&items[i].z<=distance+2.3;i++){

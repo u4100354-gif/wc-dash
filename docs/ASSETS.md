@@ -1,0 +1,46 @@
+# WC Dash 6.0: assets and tools
+
+All character meshes, articulated animation logic, trains, station props and sign
+textures in this version were authored for this project. No paid asset packs or
+Subway Surfers assets are included.
+
+- Three.js **0.187.0**, MIT: `vendor/three/`. License is included beside the files.
+- Runtime models and poses: `characters.js`; railway environment: `environment.js`.
+- Editable exchange models: `assets/models/denis.glb` (Run, Idle, Jump, Slide, Ride)
+  and `assets/models/mars.glb` (TailSway).
+- The runtime currently animates the original mesh hierarchy directly. The GLB
+  files are exports for Blender and other editors, rather than separately authored
+  skinned characters. No automatic photo-to-3D reconstruction is claimed.
+- The cat design uses the supplied photographs as a visual reference: pale cream
+  coat, large ruff, pink nose, long tufted ears and a long bushy tail.
+- Original photos are stored only in `D:\WC-Dash\references\Mars`, outside Git.
+
+## Installed on D
+
+- `D:\WC-Dash\tools\blender-4.5.16-windows-x64\blender.exe`: official Blender
+  4.5.16 LTS portable build, no system installation or file associations changed.
+- Original Blender ZIP and the publisher's checksum list: `D:\WC-Dash\downloads`.
+  Verified SHA-256:
+  `e258e90a1ebc14798ad65b3426bc5f11f5e0e013541c61cc7c3ee9bbf4ca0ce6`.
+- Editable character scene: `D:\WC-Dash\art-source\Denis-and-Mars.blend`.
+- Three.js development package: `D:\WC-Dash\tools\node_modules\three`.
+
+## Rebuilding exchange models
+
+From the project root:
+
+```powershell
+node scripts/export-models.mjs D:\WC-Dash\tools
+& 'D:\WC-Dash\tools\blender-4.5.16-windows-x64\blender.exe' --background --factory-startup --python scripts/blender-source.py -- (Get-Location).Path
+```
+
+Game files use a vendored copy of Three.js and do not need npm or Blender to run.
+Serve this directory over HTTP. GitHub Pages can still serve the repository root.
+Opening `index.html` directly from the filesystem is no longer supported because
+ES modules require an HTTP origin.
+
+## Next art pass
+
+Denis currently has an original stylized appearance, since no human reference
+photos were supplied. A future sculpt and skinning pass can refine the face,
+silhouette, clothes, cat anatomy and authored animation timing in Blender.
