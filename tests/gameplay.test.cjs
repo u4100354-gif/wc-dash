@@ -12,9 +12,33 @@ function game(saved={}){
   document:{hidden:false,getElementById(id){if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);},querySelector:()=>node(),querySelectorAll:s=>s==='[data-route]'?[node(),node(),node()]:[],addEventListener(){},createElement:()=>node()},
   soundscape:{sync(){},effect(){},init(){},wake(){},getVolumes:()=>({music:.7,fx:.8})},
   createWorld:()=>()=>{},requestAnimationFrame(){},addEventListener(){}});
- for(const file of ['showcase','trains','endless','shop','game'])vm.runInContext(fs.readFileSync(file+'.js','utf8'),ctx,{filename:file+'.js'});
+ for(const file of ['inspector','showcase','trains','endless','shop','game'])if(fs.existsSync(file+'.js'))vm.runInContext(fs.readFileSync(file+'.js','utf8'),ctx,{filename:file+'.js'});
  return {run:code=>vm.runInContext(code,ctx),storage};
 }
+test('sewer sections restore three rideable flow types in the playable route',()=>{
+ const {run}=game();run('start()');
+ assert.ok(run('flows.length')>=6,'sewer encounters must exist');
+ assert.ok(run('new Set(flows.map(f=>f.kind)).size')>=3);
+});
+test('first flow hit dirties and slows the runner; a second distinct hit ends the run',()=>{
+ const {run}=game();run('start();trains=[];items=[];flows=[{a:0,front:-.1,size:8,trigger:0,passed:false,kind:"sludge",top:1.48}];tick(1/120)');
+ assert.equal(run('state'),'run');assert.equal(run('flowHits'),1);assert.ok(run('speed()<speedAt(distance)'));
+ run('grace=0;flows.push({a:0,front:distance-.1,size:8,trigger:0,passed:false,kind:"surge",top:1.8});tick(1/120)');
+ assert.equal(run('state'),'lost');
+});
+test('landing on a flow supports the feet without counting as a frontal hit',()=>{
+ const {run}=game();run('start();trains=[];items=[];flows=[{a:0,front:0,size:12,trigger:0,passed:false,kind:"surge",top:1.8}];height=1.9;velocity=-2;for(let i=0;i<8;i++)tick(1/120)');
+ assert.equal(run('state'),'run');assert.equal(run('flowHits'),0);assert.ok(Math.abs(run('height')-1.8)<.02);
+});
+test('development freeze preserves HUD/game state and steps exactly one 60 Hz frame',()=>{
+ const {run}=game();run('start()');
+ assert.equal(run('typeof toggleInspection'),'function');
+ run('toggleInspection();frame(1000);frame(2000)');
+ assert.equal(run('state'),'run');assert.equal(run('distance'),0);assert.equal(run('elapsed'),0);
+ run('devClock.requestStep();frame(3000)');assert.ok(Math.abs(run('elapsed')-1/60)<1e-9);
+ const d=run('distance');run('frame(4000)');assert.equal(run('distance'),d);
+ run('toggleInspection();frame(4016)');assert.ok(run('distance')>d);
+});
 test('new route is wired into the playable first level',()=>{
  const {run}=game();run('start()');
  assert.equal(run('length'),720);assert.equal(run('new Set(trains.map(t=>t.kind)).size'),3);

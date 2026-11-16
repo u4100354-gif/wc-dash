@@ -50,3 +50,20 @@ test('slide model fits beneath the same low clearance used by the collision syst
  assert.ok(box.max.y<=1.04,`head must clear the bar: ${box.max.y}`);
  assert.ok(box.min.y>=-.08,`feet must stay above the ground: ${box.min.y}`);
 });
+test('runner limbs are continuous weighted meshes driven by real bones',async()=>{
+ const {ctx,three}=await setup();const root=new three.Group(),hero=ctx.createRunner(root),limbs=[];
+ root.traverse(node=>{if(node.isSkinnedMesh)limbs.push(node)});
+ assert.equal(limbs.length,4,'two arms and two legs must deform continuously');
+ for(const limb of limbs){assert.ok(limb.skeleton.bones.length>=3);const weights=limb.geometry.getAttribute('skinWeight');
+  for(let i=0;i<weights.count;i++)assert.ok(Math.abs(weights.getX(i)+weights.getY(i)+weights.getZ(i)+weights.getW(i)-1)<1e-5);
+ }
+ hero.update({t:1,phase:2});root.updateMatrixWorld(true);
+ for(const limb of limbs){limb.skeleton.update();const pos=new three.Vector3();for(let i=0;i<limb.geometry.attributes.position.count;i+=19){limb.getVertexPosition(i,pos);assert.ok(pos.toArray().every(Number.isFinite));}}
+});
+test('down action performs a full shoulder roll instead of just leaning the torso',async()=>{
+ const {ctx,three}=await setup();const root=new three.Group(),hero=ctx.createRunner(root);
+ hero.update({slide:1,roll:.5,t:.4,phase:0});
+ const pivot=root.getObjectByName('somersault');assert.ok(pivot,'body needs a roll pivot');
+ assert.ok(Math.abs(pivot.rotation.x)>2,'body must actually turn over');
+ hero.update({slide:0,roll:0,t:.9,phase:0});assert.ok(Math.abs(pivot.rotation.x)<1e-6);
+});
