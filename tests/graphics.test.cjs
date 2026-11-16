@@ -10,9 +10,14 @@ async function setup(){
   setPixelRatio(){} setSize(){} render(scene,camera){scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);}
  }
  const ctx=vm.createContext({THREE:{...three,WebGLRenderer:Renderer},devicePixelRatio:1,console,Math});
- for(const file of ['three-stage.js','characters.js'])if(fs.existsSync(file))vm.runInContext(fs.readFileSync(file,'utf8'),ctx);
+ for(const file of ['three-stage.js','characters.js','world.js'])if(fs.existsSync(file))vm.runInContext(fs.readFileSync(file,'utf8'),ctx);
  return {ctx,three};
 }
+test('existing game world uses the Three.js backend',async()=>{
+ const {ctx}=await setup();
+ const world=ctx.createWorld({clientWidth:390,clientHeight:844,getContext:()=>null});
+ assert.equal(world.engine,'three.js');
+});
 test('Three.js scene renders colored instances with lights and shadows',async()=>{
  const {ctx}=await setup();assert.equal(typeof ctx.createThreeStage,'function','Three.js stage is available');
  const stage=ctx.createThreeStage({clientWidth:390,clientHeight:844});
