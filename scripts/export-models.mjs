@@ -17,15 +17,16 @@ globalThis.FileReader=class{
 const context=vm.createContext({THREE,Math});
 vm.runInContext(await fs.readFile('characters.js','utf8'),context);
 function clip(model,name,duration,pose){
- const nodes=[];model.root.traverse(node=>{if(node.isGroup&&node.name&&node.visible)nodes.push(node);});
- const times=[],samples=nodes.map(()=>({position:[],quaternion:[]})),frames=Math.round(duration*30);
+ const nodes=[];model.root.traverseVisible(node=>{if((node.isGroup||node.isBone)&&node.name)nodes.push(node);});
+ const times=[],samples=nodes.map(()=>({position:[],quaternion:[],scale:[]})),frames=Math.round(duration*60);
  for(let frame=0;frame<=frames;frame++){
   const t=frame/frames*duration;times.push(t);model.update(pose(t));
-  nodes.forEach((node,i)=>{samples[i].position.push(...node.position);samples[i].quaternion.push(...node.quaternion);});
+  nodes.forEach((node,i)=>{samples[i].position.push(...node.position);samples[i].quaternion.push(...node.quaternion);samples[i].scale.push(...node.scale);});
  }
  const tracks=nodes.flatMap((node,i)=>[
   new THREE.VectorKeyframeTrack(node.name+'.position',times,samples[i].position),
-  new THREE.QuaternionKeyframeTrack(node.name+'.quaternion',times,samples[i].quaternion)
+  new THREE.QuaternionKeyframeTrack(node.name+'.quaternion',times,samples[i].quaternion),
+  new THREE.VectorKeyframeTrack(node.name+'.scale',times,samples[i].scale)
  ]);
  return new THREE.AnimationClip(name,duration,tracks);
 }
@@ -33,10 +34,12 @@ const exporter=new GLTFExporter();
 await fs.mkdir('assets/models',{recursive:true});
 const hero=context.createRunner(new THREE.Group());
 const animations=[
- clip(hero,'Run',.7,t=>({t,phase:t/.7*Math.PI*2})),
+ clip(hero,'Run',Math.PI*2/14.5,t=>({t,phase:t*14.5,speed:13})),
+ clip(hero,'FastRun',Math.PI*2/17.5,t=>({t,phase:t*17.5,speed:17})),
+ clip(hero,'Sprint',Math.PI*2/21,t=>({t,phase:t*21,speed:21})),
  clip(hero,'Idle',3,t=>({t,idle:true})),
  clip(hero,'Jump',1,t=>({t,jump:true,phase:0,y:Math.max(0,8.25*t-8.5*t*t),velocity:8.25-17*t})),
- clip(hero,'Slide',.8,t=>({t,phase:0,slide:Math.min(1,t/.10,(.8-t)/.10)})),
+ clip(hero,'ShoulderRoll',.8,t=>({t,phase:0,slide:Math.min(1,t/.07,(.8-t)/.06),roll:t/.8})),
  clip(hero,'Ride',2,t=>({t,phase:0,riding:true}))
 ];
 hero.update({idle:true});
@@ -46,4 +49,4 @@ const cat=context.createMarsCat(new THREE.Group());
 const catClips=[clip(cat,'TailSway',2.6,t=>({t,preview:true}))];cat.update({preview:true});
 const catBuffer=await exporter.parseAsync(cat.root,{binary:true,animations:catClips});
 await fs.writeFile('assets/models/mars.glb',Buffer.from(catBuffer));
-console.log('Exported original Denis (5 clips) and Mars (1 clip) as editable GLB files.');
+console.log('Exported skinned Denis (7 clips) and Mars (1 clip) as editable GLB files.');

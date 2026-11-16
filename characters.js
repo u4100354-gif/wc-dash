@@ -121,7 +121,8 @@ function createRunner(parent){
  stains.visible=false;
  const inverseRoot=new T.Matrix4(),localMatrix=new T.Matrix4(),point=new T.Vector3();
  function groundRoll(){
-  root.updateWorldMatrix(true,true);inverseRoot.copy(root.matrixWorld).invert();let bottom=Infinity;
+  root.updateWorldMatrix(true,true);root.updateMatrixWorld(true);
+  inverseRoot.copy(root.matrixWorld).invert();let bottom=Infinity;
   root.traverseVisible(node=>{
    if(!node.isMesh)return;localMatrix.multiplyMatrices(inverseRoot,node.matrixWorld);
    if(node.isSkinnedMesh){
@@ -183,7 +184,9 @@ function createRunner(parent){
      const swing=(u-stance)/(1-stance),arc=Math.sin(swing*Math.PI);
      footZ=mix(-stride,stride,smooth(swing));footY=.105+Math.pow(Math.max(0,arc),1.2)*(.30+stage*.055);
     }
-    solveLeg(limb,footY-hips.position.y,footZ,-bank*.07+side*.008*Math.sin(phase));
+    const cross=side===-Math.sign(bank)?.38:.16;
+    const lateral=bank*cross*(planted?.12:Math.sin((u-stance)/(1-stance)*Math.PI));
+    solveLeg(limb,footY-hips.position.y,footZ,lateral);
     // Heel lift at toe-off; the sole is horizontal during the planted phase.
     shoe.rotation.x+=planted?-.12*smooth((u/stance-.7)/.3):-.18*Math.sin((u-stance)/(1-stance)*Math.PI);
     limb.wasStance=planted;limb.previousU=u;

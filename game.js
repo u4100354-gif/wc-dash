@@ -21,6 +21,7 @@ const render3D=createWorld(canvas);
 const devClock=createDevClock();
 function toggleInspection(){
  const frozen=devClock.toggle();render3D.stage?.inspection?.setActive(frozen);
+ pointer=null;$('inspect').setAttribute('aria-pressed',String(frozen));
  $('devPanel').hidden=!frozen;soundscape.sync(!frozen&&(state==='run'||state==='finish'),mute);
 }
 const rearMargin=16; // Behind the furthest chase camera, including in flight.
@@ -216,7 +217,7 @@ function status(){
  $('catButtonHint').textContent=flight?'Бонусы ждут посадки':catTime>0?'Спасёт от одного удара':catCooldown>0?'Скоро можно снова':'C / двойной тап';
  $('menuCats').textContent=profile.cats;
  $('skinBalance').textContent=profile.keys;$('keyBadge').hidden=state!=='run';$('keyTotal').textContent=profile.keys;
- $('powers').textContent=[flight?'🍗 Крылышки · '+Math.ceil(flight.end-distance)+' м · бонусы на паузе':'',stumbleTime>0?'Хромота '+Math.ceil(stumbleTime)+' с':stumbleCooldown>0?'Лёгкий удар через '+Math.ceil(stumbleCooldown)+' с':'',bootsTime>0?'Ботинки '+Math.ceil(bootsTime)+' с':'',catTime>0?'🐈 Кот '+Math.ceil(catTime)+' с':'',magnet>0?'∩ Магнит '+Math.ceil(magnet)+' с':''].filter(Boolean).join('  ·  ');
+ $('powers').textContent=[flight?'🍗 Крылышки · '+Math.ceil(flight.end-distance)+' м · бонусы на паузе':'',flowHits>0?'Испачкан · второй поток опасен':'',stumbleTime>0?'Замедление '+Math.ceil(stumbleTime)+' с':stumbleCooldown>0?'Лёгкий удар через '+Math.ceil(stumbleCooldown)+' с':'',bootsTime>0?'Ботинки '+Math.ceil(bootsTime)+' с':'',catTime>0?'🐈 Кот '+Math.ceil(catTime)+' с':'',magnet>0?'∩ Магнит '+Math.ceil(magnet)+' с':''].filter(Boolean).join('  ·  ');
  const section=marathon()?biomeAt(distance):Math.min(2,Math.floor(distance/(length/3)));
  $('flowWarning').textContent=state==='run'?warning:'';
  $('section').textContent=marathon()?['Парк','Рынок','Вокзал'][section]:level?['Депо','Набережная','Коллектор'][section]:sewerAt(distance)?'Канализация · береги одежду':sections[section];$('routeFill').style.transform='scaleX('+(marathon()?(distance%1000)/1000:Math.min(1,distance/length))+')';
@@ -398,6 +399,7 @@ function swipe(e){if(devClock.frozen||!pointer||e.pointerId!==pointer.id)return;
  const dx=e.clientX-pointer.x,dy=e.clientY-pointer.y;if(Math.max(Math.abs(dx),Math.abs(dy))<17)return;
  move(Math.abs(dx)>Math.abs(dy)?dx<0?'left':'right':dy<0?'up':'down');pointer=null}
 canvas.addEventListener('pointermove',swipe);canvas.addEventListener('pointerup',e=>{
+ if(devClock.frozen){pointer=null;return}
  if(pointer&&pointer.id===e.pointerId){
   const dx=e.clientX-pointer.x,dy=e.clientY-pointer.y;
   if(Math.max(Math.abs(dx),Math.abs(dy))<17){
@@ -408,6 +410,7 @@ canvas.addEventListener('pointermove',swipe);canvas.addEventListener('pointerup'
 });canvas.addEventListener('lostpointercapture',()=>pointer=null);
 addEventListener('blur',()=>{if(!devClock.frozen)pause()});document.addEventListener('visibilitychange',()=>{if(document.hidden&&!devClock.frozen)pause()});
 $('devStep').onclick=()=>devClock.requestStep();$('devResume').onclick=toggleInspection;
+$('inspect').onclick=toggleInspection;
 $('hint').textContent=navigator.maxTouchPoints?'Свайпай по экрану':'Стрелки или WASD';
 if(navigator.maxTouchPoints)document.querySelector('footer').prepend(document.createTextNode('Свайпы'));
 $('skinsBtn').onclick=()=>showShop('skins');$('settingsBtn').onclick=showSettings;$('pauseSettings').onclick=showSettings;
