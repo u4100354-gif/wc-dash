@@ -12,7 +12,7 @@ function createWorld(canvas) {
    slide:idle?0:poseSlide,roll:idle?0:rollAge>=0?clamp(rollAge/.8,0,1):0,rollDirection:rollLateral,bank:idle?0:poseBank,landing:idle?0:landing,
    speed:speed(),distance,dirty:!idle&&flowHits>0,takeoffPhase:jumpTakeoffPhase,supportGap:height-ground,
    riding:!idle&&catTime>0&&!flight&&!closing,
-   finish:closing?ease((toiletTime-1.28)/.70):0,skin:currentSkin(),boots:bootsTime>0});
+   finish:closing?ease((toiletTime-1.28)/.70):0,skin:currentSkin(),boots:bootsTime>0||bootJumpActive});
  }
  function wc(a,z){
   // Seat height and front edge match the seated hip and the knee clearance.

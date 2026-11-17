@@ -70,8 +70,16 @@ test('upgraded active boots collect coins and keys passed underneath a jump',()=
  const {run}=game();run('start();trains=[];flows=[];profile.boots=1;bootsTime=5;height=3.2;velocity=1;items=[{type:"poo",a:0,z:.5,y:.65},{type:"key",a:0,z:.6,y:0}];tick(1/120)');
  assert.equal(run('coins'),1);assert.equal(run('runKeys'),1);
 });
-test('boots do not vacuum other lanes or work without an upgrade',()=>{
- const {run}=game();run('start();trains=[];flows=[];profile.boots=0;bootsTime=5;height=3;velocity=1;items=[{type:"poo",a:0,z:.5,y:.65}];tick(1/120)');assert.equal(run('coins'),0);
+test('active boots collect under a high jump even without a purchased duration upgrade',()=>{
+ const {run}=game();run('start();trains=[];flows=[];profile.boots=0;bootsTime=5;height=4.2;velocity=1;items=[{type:"poo",a:0,z:.5,y:2.55}];tick(1/120)');assert.equal(run('coins'),1);
+});
+test('boot jump attraction lasts until landing when the timer expires in midair',()=>{
+ const {run}=game();run('start();trains=[];flows=[];items=[];bootsTime=.02;move("up");for(let i=0;i<40;i++)tick(1/120);items=[{type:"poo",a:0,z:distance+.1,y:.65}];tick(1/120)');
+ assert.equal(run('bootsTime'),0);assert.equal(run('coins'),1);assert.equal(run('bootJumpActive'),true);
+ run('for(let i=0;i<180;i++)tick(1/120)');assert.equal(run('bootJumpActive'),false);
+});
+test('boots do not vacuum other lanes or work without an active bonus',()=>{
+ const {run}=game();run('start();trains=[];flows=[];profile.boots=0;bootsTime=0;height=3;velocity=1;items=[{type:"poo",a:0,z:.5,y:.65}];tick(1/120)');assert.equal(run('coins'),0);
  run('profile.boots=2;items=[{type:"poo",a:2.2,z:distance+.5,y:.65}];tick(1/120)');assert.equal(run('coins'),0);
 });
 test('player can jump from one moving train roof to the next across a six metre gap',()=>{

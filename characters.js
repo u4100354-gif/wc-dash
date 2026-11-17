@@ -70,6 +70,8 @@ function createRunner(parent){
  E(torso,'#246e72',0,.26,-.20,.195,.24,.075);E(torso,'#389799',0,.25,-.262,.14,.17,.02);
  for(const side of [-1,1]){const strap=S(torso,'#254c53',side*.205,.30,-.08,.027,.51);strap.rotation.x=-.35;}
  const arms=[],legs=[];
+ const pelvis=E(hips,'#294d65',0,-.015,-.015,.225,.135,.165);pelvis.name='pantsPelvis';
+ for(const side of [-1,1])E(hips,'#294d65',side*.105,-.06,-.055,.125,.115,.13);
  // A closed shoulder yoke joins the collar to both sleeves beneath the hoodie.
  const yokeProfile=[[.35,.23,.14],[.43,.26,.15],[.50,.25,.14],[.56,.20,.12],[.62,.105,.095]];
  const yp=[],yi=[];
@@ -91,7 +93,7 @@ function createRunner(parent){
   E(wrist,'#f7ba7a',0,.012,0,.065,.028,.064);
   arms.push({arm,elbow,wrist,hand,side});
   const hip=J(hips,label+'HipSocket',side*.14,0,0);
-  const legRig=createSkinLimb(hip,label+'Leg',.36,.34,[[0,.122],[.20,.115],[.49,.082],[.58,.085],[.72,.091],[.90,.062],[1,.054]],material('#294d65'));
+  const legRig=createSkinLimb(hip,label+'Leg',.36,.34,[[0,.122],[.20,.115],[.49,.082],[.58,.085],[.72,.091],[.90,.062],[1,.054]],material('#294d65'),.095);
   const leg=legRig.top,knee=legRig.middle,ankle=legRig.end,shin=legRig.mesh;
   knee.name=label+'Knee';
   const shoe=J(ankle,label+'Shoe',0,0,0);

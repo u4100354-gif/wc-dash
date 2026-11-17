@@ -137,3 +137,13 @@ test('menu cat position leaves clear space beside Denis',async()=>{
  const a=new three.Box3().setFromObject(hero.root),b=new three.Box3().setFromObject(cat.root);
  assert.ok(b.min.x>a.max.x+.05,`separation: ${b.min.x-a.max.x}`);
 });
+test('jump has a solid trouser pelvis and closed caps above both thighs',async()=>{
+ const {ctx,three}=await setup(),root=new three.Group(),hero=ctx.createRunner(root);
+ hero.update({jump:true,velocity:0,supportGap:3});root.updateMatrixWorld(true);
+ const pelvis=root.getObjectByName('pantsPelvis');assert.ok(pelvis?.isMesh,'solid waist and seat must exist');
+ for(const name of ['leftLegSurface','rightLegSurface']){
+  const mesh=root.getObjectByName(name),pos=mesh.geometry.getAttribute('position');
+  assert.ok(pos.getY(0)>0,'upper leg must have a closed cap reaching into the pelvis');
+  assert.ok(Math.abs(pos.getX(0))<1e-6&&Math.abs(pos.getZ(0))<1e-6);
+ }
+});

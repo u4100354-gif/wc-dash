@@ -11,7 +11,7 @@ let best=0,mute=false;
 try{best=Number(localStorage.wcDashBest)||0;mute=localStorage.wcDashMuted==='yes'}catch{}
 let state='menu',distance=0,lane=0,x=0,height=0,velocity=0,slide=0,coins=0,completed=0,letters=[],items=[],stamp=0,noticeUntil=0,clock=0,elapsed=0,toiletTime=0;
 let poseSlide=0,poseBank=0,landing=0,flecks=[],runCycle=0,diving=false;
-let flowHits=0,rollAge=-1,rollLateral=0,jumpTakeoffPhase=0;
+let flowHits=0,rollAge=-1,rollLateral=0,jumpTakeoffPhase=0,bootJumpActive=false;
 const sections=['Солнечное депо','Экспресс-платформа','Грузовая станция'];
 function scatter(a,b,z,color){
  flecks=flecks.filter(e=>elapsed-e.at<.43);
@@ -110,7 +110,7 @@ const isBarrier=type=>type==='crate'||type==='bar'||type==='hurdle'||type==='wal
 // Physics and both renderers share the actual clearance of each obstacle.
 const hurdleBottom=1.46,hurdleTop=1.70,slideHeight=1.38,barBottom=1.39,barTop=2.45;
 function bootsAttract(a,z,y){
- return bootsTime>0&&profile.boots>0&&!flight&&!grounded()&&Math.abs(a-x)<.95&&z-distance<=1.2&&z-distance>=-3&&y<=height+.7;
+ return (bootsTime>0||bootJumpActive)&&!flight&&!grounded()&&Math.abs(a-x)<1.05&&z-distance<=3&&z-distance>=-10&&y<=height+.7;
 }
 function hitsBarrier(item){
  const bottom=height-item.y;
@@ -129,7 +129,7 @@ const flightHeight=6.1;
 function beginFlight(){
  const reach=Math.min(140,length-distance-12);
  if(reach<50)return;
- flight={start:distance,end:distance+reach,from:height};
+ bootJumpActive=false;flight={start:distance,end:distance+reach,from:height};
  slide=velocity=0;diving=false;
  const airLanes=lane===0?[0,1,0,-1]:[lane,0,-lane,0];
  const airTrail=[];
@@ -237,7 +237,7 @@ function ui(){
  soundscape.sync(!devClock.frozen&&(state==='run'||state==='finish'),mute);
  $('cover').hidden=state!=='menu';$('hud').hidden=state==='menu';$('pause').hidden=state!=='run';$('overlay').hidden=!['win','lost','pause'].includes(state);status()
 }
-function start(){flowHits=0;rollAge=-1;rollLateral=0;if(devClock.frozen)toggleInspection();runKeys=stumbleTime=stumbleCooldown=0;bootsTime=paidCoins=cleanStart=wordKm=0;revived=missionDone=kmWordDone=false;settled=false;prepareRoute();state='run';lane=x=height=velocity=slide=distance=coins=completed=elapsed=toiletTime=0;ground=cameraLift=magnet=grace=0;flight=null;catTime=catCooldown=0;poseSlide=poseBank=landing=runCycle=0;diving=false;flecks=[];letters=[];if(marathon())resetDistricts();else items=course();$('toast').textContent='';try{soundscape.init()}catch{}ui()}
+function start(){bootJumpActive=false;flowHits=0;rollAge=-1;rollLateral=0;if(devClock.frozen)toggleInspection();runKeys=stumbleTime=stumbleCooldown=0;bootsTime=paidCoins=cleanStart=wordKm=0;revived=missionDone=kmWordDone=false;settled=false;prepareRoute();state='run';lane=x=height=velocity=slide=distance=coins=completed=elapsed=toiletTime=0;ground=cameraLift=magnet=grace=0;flight=null;catTime=catCooldown=0;poseSlide=poseBank=landing=runCycle=0;diving=false;flecks=[];letters=[];if(marathon())resetDistricts();else items=course();$('toast').textContent='';try{soundscape.init()}catch{}ui()}
 function modal(label,title,details,button){$('label').textContent=label;$('heading').textContent=title;$('result').textContent=details;$('action').textContent=button;$('toast').textContent='';ui()}
 function end(won,cause){
  if(settled)return;settled=true;profile.wallet+=coins-paidCoins;paidCoins=coins;
@@ -276,7 +276,7 @@ function move(action){
   lane=next;return;
  }
  if(flight)return;
- if(action==='up'&&grounded()){jumpTakeoffPhase=runCycle;slide=0;rollAge=-1;rollLateral=0;diving=false;velocity=jumpVelocity*(bootsTime>0?Math.sqrt(1.5):1);soundscape.effect('jump')}
+ if(action==='up'&&grounded()){bootJumpActive=bootsTime>0;jumpTakeoffPhase=runCycle;slide=0;rollAge=-1;rollLateral=0;diving=false;velocity=jumpVelocity*(bootsTime>0?Math.sqrt(1.5):1);soundscape.effect('jump')}
  if(action==='down'){
   soundscape.effect('slide');slide=.80;rollLateral=0;
   if(!grounded()){diving=true;velocity=Math.min(velocity,-12)}
@@ -326,7 +326,7 @@ function tick(dt){
  else{
   const wasAirborne=!wasGrounded;
   velocity-=gravity*dt;height=Math.max(ground,height+velocity*dt);if(grounded()&&velocity<0)velocity=0;
-  if(wasAirborne&&grounded()){if(diving){diving=false;slide=.80;rollAge=0}landing=1;scatter(x,ground+.12,distance,'dcd9b3')}
+  if(wasAirborne&&grounded()){bootJumpActive=false;if(diving){diving=false;slide=.80;rollAge=0}landing=1;scatter(x,ground+.12,distance,'dcd9b3')}
   if(grounded()&&!slide)soundscape.effect('step')
  }
  const cameraTarget=flight?height:Math.max(ground,height-.95);
