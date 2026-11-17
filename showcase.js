@@ -12,6 +12,10 @@ function buildShowcaseRoute() {
  car(425,-1,24,'express');Object.assign(trains.at(-1),{incomingSpeed:8,trigger:365});
  car(532,-1,25,'freight',7,0);car(571,-1,25,'freight',0,7);
  car(590,1,28,'metro');Object.assign(trains.at(-1),{incomingSpeed:8,trigger:530});
+ // Matching speeds keep the roof gaps stable for successive jumps.
+ for(const lead of [...trains].filter(c=>c.incomingSpeed))for(let n=1;n<=2;n++){
+  trains.push({...lead,z:lead.z+n*(lead.deck+6),deck:lead.deck,entry:0,exit:0,relay:true});
+ }
  for (const [type,z,lane] of [
   ['crate',28,0],['hurdle',44,-1],['bar',139,0],['crate',162,-1],
   ['hurdle',184,0],['bar',286,1],['crate',309,0],['hurdle',332,1],
@@ -29,6 +33,7 @@ function buildShowcaseRoute() {
   {target:638,a:2.2,kind:'sludge',top:1.25,size:11,incomingSpeed:7},
   {target:677,a:0,kind:'surge',top:1.8,size:8,incomingSpeed:10}
  ];
+ for(const lead of [...flowEncounters].filter((_,i)=>i%2===0))flowEncounters.push({...lead,target:lead.target+10,relay:true});
  return {length:720,trains,obstacles,sewers,flowEncounters};
 }
 function sewerAt(z){return showcaseSewerSections.some(section=>z>=section.start&&z<=section.end)}

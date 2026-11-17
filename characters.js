@@ -10,7 +10,7 @@ function characterKit(){
 }
 // One closed surface spans each joint. Skin weights blend across the elbow/knee
 // instead of leaving gaps between separately rotated capsules.
-function createSkinLimb(parent,name,upper,lower,radii,material){
+function createSkinLimb(parent,name,upper,lower,radii,material,shoulderCap=0){
  const T=THREE,total=upper+lower,rings=44,sides=20;
  const positions=[],normals=[],indices=[],skinIndices=[],skinWeights=[],uv=[];
  const profile=t=>{
@@ -20,7 +20,8 @@ function createSkinLimb(parent,name,upper,lower,radii,material){
  };
  const smooth=v=>{v=Math.min(1,Math.max(0,v));return v*v*(3-2*v)};
  for(let ring=0;ring<=rings;ring++){
-  const t=ring/rings,d=t*total,r=profile(t);
+  const t=ring/rings,d=t*(total+shoulderCap)-shoulderCap;
+  const r=d<0?radii[0][1]*Math.sqrt(Math.max(0,1-(d/shoulderCap)**2)):profile(d/total);
   const mid=smooth((d-upper+.085)/.17),end=smooth((d-total+.06)/.06);
   for(let side=0;side<=sides;side++){
    const angle=side/sides*Math.PI*2;
@@ -32,6 +33,9 @@ function createSkinLimb(parent,name,upper,lower,radii,material){
  const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));
  geometry.setAttribute('normal',new T.Float32BufferAttribute(normals,3));geometry.setAttribute('uv',new T.Float32BufferAttribute(uv,2));
  geometry.setAttribute('skinIndex',new T.Uint16BufferAttribute(skinIndices,4));geometry.setAttribute('skinWeight',new T.Float32BufferAttribute(skinWeights,4));geometry.setIndex(indices);geometry.computeVertexNormals();
+ // The pole is shared by a full ring of coincident cap vertices. Give every
+ // duplicate the same valid normal instead of leaving degenerate zero normals.
+ if(shoulderCap){const n=geometry.getAttribute('normal');for(let i=0;i<=sides;i++)n.setXYZ(i,0,1,0);}
  const top=new T.Bone(),middle=new T.Bone(),end=new T.Bone();top.name=name+'Root';middle.name=name+'Joint';end.name=name+'End';
  middle.position.y=-upper;end.position.y=-lower;top.add(middle);middle.add(end);parent.add(top);
  const mesh=new T.SkinnedMesh(geometry,material);mesh.name=name+'Surface';mesh.castShadow=mesh.receiveShadow=true;mesh.frustumCulled=false;parent.add(mesh);
@@ -40,16 +44,17 @@ function createSkinLimb(parent,name,upper,lower,radii,material){
 }
 function createRunner(parent){
  const {T,material,ellipsoid:E,segment:S,joint:J}=characterKit();
- const root=J(parent,'Denis',0,0,0),somersault=J(root,'somersault',0,0,0),hips=J(somersault,'hips',0,.98,0),torso=J(hips,'torso',0,.03,0);
- const coat=E(torso,'#ed7541',0,.27,0,.31,.37,.21);
- E(torso,'#ff9e60',0,.04,.03,.29,.11,.21);E(torso,'#da5935',0,.47,-.11,.27,.18,.18);
+ const root=J(parent,'Denis',0,0,0),somersault=J(root,'somersault',0,0,0),hips=J(somersault,'hips',0,.80,0),torso=J(hips,'torso',0,.03,0);
+ const coat=E(torso,'#ed7541',0,.27,0,.25,.35,.165);
+ coat.name='hoodieBody';
+ E(torso,'#ff9e60',0,.04,.015,.24,.075,.16);E(torso,'#da5935',0,.47,-.09,.22,.15,.145);
  // Hoodie seam, zipper and pocket; front points in the direction of travel.
- S(torso,'#ffcf8a',0,.27,.205,.014,.38);
- for(const side of [-1,1])S(torso,'#f6c47c',side*.075,.43,.20,.012,.16);
- E(torso,'#ca563b',0,.14,.193,.20,.075,.035);
+ S(torso,'#ffcf8a',0,.27,.165,.014,.38);
+ for(const side of [-1,1])S(torso,'#f6c47c',side*.065,.43,.16,.012,.16);
+ E(torso,'#ca563b',0,.14,.153,.16,.06,.025);
  const neck=E(torso,'#f3bd93',0,.66,0,.12,.15,.12);
  const head=J(torso,'head',0,.82,0);
- head.scale.setScalar(.70);
+ head.scale.setScalar(1);
  E(head,'#f5c39a',0,0,.015,.235,.27,.22);
  for(const side of [-1,1]){
   E(head,'#edaf8a',side*.23,-.015,0,.055,.085,.05);
@@ -62,13 +67,23 @@ function createRunner(parent){
  // Visible short chestnut hair and a swept fringe, rather than a cube hat.
  E(head,'#52372e',0,.15,-.04,.245,.16,.22);
  for(let i=0;i<7;i++){const hair=E(head,i%2?'#674235':'#55352c',(i-3)*.061,.206+Math.sin(i)*.025,.087,.083,.064,.16);hair.rotation.z=-.22;}
- E(torso,'#246e72',0,.26,-.245,.235,.28,.09);E(torso,'#389799',0,.25,-.322,.16,.19,.025);
+ E(torso,'#246e72',0,.26,-.20,.195,.24,.075);E(torso,'#389799',0,.25,-.262,.14,.17,.02);
  for(const side of [-1,1]){const strap=S(torso,'#254c53',side*.205,.30,-.08,.027,.51);strap.rotation.x=-.35;}
  const arms=[],legs=[];
+ // A closed shoulder yoke joins the collar to both sleeves beneath the hoodie.
+ const yokeProfile=[[.35,.23,.14],[.43,.26,.15],[.50,.25,.14],[.56,.20,.12],[.62,.105,.095]];
+ const yp=[],yi=[];
+ for(let row=0;row<yokeProfile.length;row++)for(let n=0;n<=32;n++){
+  const [y,w,d]=yokeProfile[row],a=n/32*Math.PI*2;yp.push(Math.cos(a)*w,y,Math.sin(a)*d);
+  if(row<yokeProfile.length-1&&n<32){const i=row*33+n;yi.push(i,i+33,i+1,i+1,i+33,i+34);}
+ }
+ const yg=new T.BufferGeometry();yg.setAttribute('position',new T.Float32BufferAttribute(yp,3));yg.setIndex(yi);yg.computeVertexNormals();
+ const yoke=new T.Mesh(yg,material('#ed7541'));yoke.name='clavicleYoke';yoke.castShadow=yoke.receiveShadow=true;torso.add(yoke);
  for(const side of [-1,1]){
   const label=side<0?'left':'right';
-  const shoulder=J(torso,label+'Shoulder',side*.30,.49,0);
-  const armRig=createSkinLimb(shoulder,label+'Arm',.32,.30,[[0,.10],[.18,.095],[.5,.078],[.65,.079],[.88,.062],[1,.058]],material('#ed7541'));
+  const shoulder=J(torso,label+'Shoulder',side*.225,.465,0);
+  const deltoid=J(shoulder,label+'Deltoid',0,0,0);
+  const armRig=createSkinLimb(deltoid,label+'Arm',.32,.30,[[0,.10],[.18,.095],[.5,.078],[.65,.079],[.88,.062],[1,.058]],material('#ed7541'),.095);
   const arm=armRig.top,elbow=armRig.middle,wrist=armRig.end;
   const hand=J(wrist,label+'Hand',0,-.045,.01);
   E(hand,'#f4bf94',0,-.027,0,.057,.085,.042);
@@ -76,7 +91,7 @@ function createRunner(parent){
   E(wrist,'#f7ba7a',0,.012,0,.065,.028,.064);
   arms.push({arm,elbow,wrist,hand,side});
   const hip=J(hips,label+'HipSocket',side*.14,0,0);
-  const legRig=createSkinLimb(hip,label+'Leg',.45,.43,[[0,.122],[.20,.115],[.49,.082],[.58,.085],[.72,.091],[.90,.062],[1,.054]],material('#294d65'));
+  const legRig=createSkinLimb(hip,label+'Leg',.36,.34,[[0,.122],[.20,.115],[.49,.082],[.58,.085],[.72,.091],[.90,.062],[1,.054]],material('#294d65'));
   const leg=legRig.top,knee=legRig.middle,ankle=legRig.end,shin=legRig.mesh;
   knee.name=label+'Knee';
   const shoe=J(ankle,label+'Shoe',0,0,0);
@@ -134,7 +149,7 @@ function createRunner(parent){
   if(Number.isFinite(bottom))somersault.position.y+=.008-bottom;
  }
  function solveLeg(limb,footY,footZ,footX=0){
-  const upper=.45,lower=.43,d=Math.min(upper+lower-.002,Math.max(.08,Math.hypot(footY,footZ)));
+  const upper=.36,lower=.34,d=Math.min(upper+lower-.002,Math.max(.08,Math.hypot(footY,footZ)));
   const bend=Math.PI-Math.acos(Math.min(1,Math.max(-1,(upper*upper+lower*lower-d*d)/(2*upper*lower))));
   limb.leg.rotation.x=Math.atan2(-footZ,-footY)-Math.atan2(lower*Math.sin(bend),upper+lower*Math.cos(bend));
   limb.knee.rotation.x=bend;limb.leg.rotation.z=Math.atan2(footX,-footY);
@@ -143,32 +158,41 @@ function createRunner(parent){
  function update(p){
   const {x=0,y=0,z=0,t=0,phase=t*17,idle=false,jump=false,velocity=0,slide=0,bank=0,landing=0,riding=false,finish=0,skin,boots=false,dirty=false,distance=0,speed=16}=p;
   const effort=Math.min(1,Math.max(0,(speed-13)/8)),stage=effort<.33?0:effort<.70?1:2;
-  const cadence=[14.5,17.5,21][stage],stride=[.40,.48,.56][stage];
+  const cadence=[14.5,17.5,21][stage],stride=[.29,.33,.36][stage];
   const crouch=Math.max(slide,finish*.65),rolling=slide>0&&p.roll!==undefined&&p.roll>0&&p.roll<1;
   const progress=rolling?p.roll:0,tuck=rolling?Math.min(smooth(progress/.13),smooth((1-progress)/.16)):0;
+  const jumpMax=8.25*(boots?Math.sqrt(1.5):1),ascent=Math.max(0,Math.min(1,velocity/jumpMax));
+  const flightTuck=jump?smooth(1-Math.min(1,Math.abs(velocity)/jumpMax)):0;
+  const readyToLand=jump&&velocity<0?smooth(1-Math.min(1,(p.supportGap??1)/.8)):0;
+  const lead=Math.sin(p.takeoffPhase??phase)>=0?-1:1;
+  const sideways=rolling&&!!p.rollDirection,turn=rolling?Math.PI*2*smooth((progress-.13)/.68):0;
   root.position.set(x,y+(riding?.36:0),z);root.rotation.y=p.angle||0;root.rotation.z=-bank*.10;
   somersault.position.set(tuck*.055,tuck*.50,0);
-  somersault.rotation.set(rolling?Math.PI*2*smooth((progress-.13)/.68):0,0,rolling?Math.sin(progress*Math.PI)*.16:0);
+  // Forward rotation follows travel. Axial side rotation is reserved for a lane change.
+  somersault.rotation.set(sideways?tuck*Math.PI/2:turn,sideways?-Math.sign(p.rollDirection)*turn:0,sideways?Math.sin(progress*Math.PI)*.12:0,'XYZ');
   const bob=idle?Math.sin(t*2)*.009:jump?0:Math.sin(phase*2)*.017;
-  const normalHip=idle?.98:.85-stage*.04+bob-landing*.065;
-  hips.position.set(0,mix(normalHip-crouch*.42,-.025,tuck),-.40*tuck);
+  const normalHip=idle?.80:.72-stage*.025+bob-landing*.065;
+  hips.position.set(0,mix(normalHip-crouch*.30,0,tuck),sideways?0:-.46*tuck);
   hips.rotation.y=idle?0:Math.sin(phase)*.045*(1-crouch);hips.rotation.z=idle?0:Math.sin(phase)*.016*(1-crouch);
-  torso.rotation.x=mix(crouch*1.30+(idle?0:jump?-.10:.14+stage*.045),1.47,tuck);
+  torso.rotation.x=mix(crouch*1.30+(idle?0:jump?.10+flightTuck*.08:.18+stage*.035),sideways?.12:1.38,tuck);
   torso.rotation.y=idle?0:-Math.sin(phase)*.075*(1-crouch);torso.rotation.z=-bank*.055*(1-crouch);
   head.rotation.y=idle?Math.sin(t*.65)*.18:-bank*.11;
-  head.rotation.x=rolling?.36:jump?-.12:-(torso.rotation.x*.22);
-  hips.scale.setScalar(mix(1,.84,tuck));
+  head.rotation.x=rolling?.18:jump?-.12:-(torso.rotation.x*.22);
+  hips.scale.setScalar(1);
   for(const limb of legs){
    const {leg,knee,shoe,shin,side}=limb;
    if(rolling){
-    leg.rotation.set(mix(-1.3,-2.05,tuck),0,side*.06);knee.rotation.x=mix(2.5,2.72,tuck);shoe.rotation.x=-leg.rotation.x-knee.rotation.x;
+    leg.rotation.set(mix(-1.3,sideways?(side<0?-.20:-.55):(side<0?-1.5:-1.65),tuck),0,side*.08);knee.rotation.x=mix(2.2,sideways?(side<0?.65:1.15):(side<0?2.1:2.25),tuck);shoe.rotation.x=-leg.rotation.x-knee.rotation.x;
    }else if(crouch>.05){
-    leg.rotation.set(-1.3*crouch,0,side*.025);knee.rotation.x=2.5*crouch;shoe.rotation.x=-leg.rotation.x-knee.rotation.x;
+    leg.rotation.set(-1.3*crouch,0,side*.025);knee.rotation.x=2.2*crouch;shoe.rotation.x=-leg.rotation.x-knee.rotation.x;
    }else if(riding){leg.rotation.set(-1.2,0,side*.25);knee.rotation.x=1.8;shoe.rotation.x=-.6;
    }else if(jump){
-    const float=smooth(1-Math.min(1,Math.abs(velocity)/8.25));
-    leg.rotation.set(-.65-float*.65+(side<0?.10:-.10),0,side*.04);knee.rotation.x=1.2+float*.85;shoe.rotation.x=-.35;
-   }else if(idle){solveLeg(limb,-.88,side*.025);limb.wasStance=false;
+    const leading=side===lead,launch=Math.sin((p.takeoffPhase??phase)+(side<0?0:Math.PI))*.35-.30;
+    const collect=1-ascent*.75;
+    leg.rotation.set(mix(launch,-.70-flightTuck*.35+(leading?-.12:.12),collect)*(1-readyToLand*.65),0,side*.035);
+    knee.rotation.x=mix(.55+(leading?.25:0),1.15+flightTuck*.65,collect)*(1-readyToLand*.70);
+    shoe.rotation.x=-leg.rotation.x-knee.rotation.x;
+   }else if(idle){solveLeg(limb,-.695,side*.025);limb.wasStance=false;
    }else{
     const u=((phase/(Math.PI*2)+(side<0?0:.5))%1+1)%1;
     // Ground contact has a fixed world anchor. The stance duration decreases
@@ -197,8 +221,9 @@ function createRunner(parent){
    const wave=Math.sin(phase+(side<0?0:Math.PI));
    arm.rotation.set(idle?.04:-wave*(.64+stage*.10)-(jump?.5:0)-(riding?.65:0),0,side*.085-bank*.04);
    elbow.rotation.x=idle?-.15:-1.05-.24*Math.cos(phase+(side<0?0:Math.PI));
+   if(jump){arm.rotation.x=-.30-ascent*.65-flightTuck*.25;elbow.rotation.x=-.85-flightTuck*.3;}
    wrist.rotation.set(.07,side*.08,side*.10);hand.rotation.x=.12;
-   if(crouch>.05){arm.rotation.x=mix(arm.rotation.x,-.70,crouch);elbow.rotation.x=mix(elbow.rotation.x,-2.0,crouch);}
+   if(crouch>.05){arm.rotation.x=mix(arm.rotation.x,sideways?-2.1:-.70,crouch);elbow.rotation.x=mix(elbow.rotation.x,sideways?-1.0:-1.8,crouch);}
   }
   if(skin&&skin.jacket!==palette){for(const {node,role} of clothing)node.material=material('#'+skin[role]);palette=skin.jacket;}
   for(const [kind,accessory] of outfits)accessory.visible=skin?.kind===kind;

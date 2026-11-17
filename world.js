@@ -9,8 +9,8 @@ function createWorld(canvas) {
  function person(a,b,z,angle,t,jump,idle){
   const closing=state==='finish'||state==='win';
   runner.update({x:a,y:b,z,angle,t,phase:runCycle,idle,jump,velocity,
-   slide:idle?0:poseSlide,roll:idle?0:rollAge>=0?clamp(rollAge/.8,0,1):0,bank:idle?0:poseBank,landing:idle?0:landing,
-   speed:speed(),distance,dirty:!idle&&flowHits>0,
+   slide:idle?0:poseSlide,roll:idle?0:rollAge>=0?clamp(rollAge/.8,0,1):0,rollDirection:rollLateral,bank:idle?0:poseBank,landing:idle?0:landing,
+   speed:speed(),distance,dirty:!idle&&flowHits>0,takeoffPhase:jumpTakeoffPhase,supportGap:height-ground,
    riding:!idle&&catTime>0&&!flight&&!closing,
    finish:closing?ease((toiletTime-1.28)/.70):0,skin:currentSkin(),boots:bootsTime>0});
  }
@@ -252,7 +252,7 @@ function createWorld(canvas) {
   stage.setSewer?.(level===0&&!menu?sewerBlendAt(d):0);
   const heroX=menu?0:x,heroZ=closing?.16*ease(toiletTime/.80)+.65*ease((toiletTime-1.94)/.54):0;
   person(heroX,menu?0:height,heroZ,menu?-2.32:closing?Math.PI*ease((toiletTime-.66)/.61):clamp((lane*2.2-x)*.15,-.25,.25),t,!grounded(),menu);
-  if(menu){denisCat(.84,0,.05,t,true);wc(mobile?1.70:2.25,3.85);token(-1.3,1.8,t)}
+  if(menu){denisCat(1.55,0,.25,t,true);wc(mobile?1.70:2.25,3.85);token(-1.3,1.8,t)}
   else{
    for(const f of flows){
     if(f.passed)continue;
@@ -264,7 +264,7 @@ function createWorld(canvas) {
     drawSewerFlow(stage,f,front,t);
     for(const pickup of f.tokens||[])if(!pickup.done)token(f.a,front+pickup.offset,t,(f.top??1.48)+.65);
    }
-   for(const train of trains)carriage(train,d);
+   for(const train of trains){carriage(train,d);for(const pickup of train.roofTokens||[])if(!pickup.done&&train.z+train.entry+pickup.offset-d<90&&train.z+train.entry+pickup.offset-d>-16)token(train.a,train.z+train.entry+pickup.offset-d,t,roofHeight+.65);}
    if(!closing&&!flight&&catTime>0)denisCat(x,height,-.2,t);
    if(flight)jetTrail(t);
    if(length-d<66)wc(0,length-d+1.65);
@@ -274,7 +274,7 @@ function createWorld(canvas) {
      box(a,b,z,.70,.74,.21,'127668',turn);box(a-.125*Math.sin(turn),b,z-.125*Math.cos(turn),.62,.65,.052,'cdf194',turn);
      glyph(ch,a-.17*Math.sin(turn),b,z-.17*Math.cos(turn),.093,'204f4b',turn)
     }else if(it.type==='poo'){
-     const pull=!flight&&magnet>0&&Math.abs(height+.70-it.y)<2.9&&z>=-2.2?clamp((7-z)/5,0,1):0;
+     const pull=bootsAttract(it.a,it.z,it.y)?clamp((3-z)/3,0,1):!flight&&magnet>0&&Math.abs(height+.70-it.y)<2.9&&z>=-2.2?clamp((7-z)/5,0,1):0;
      token(a+(x-a)*pull,z,t,it.y+(height+.70-it.y)*pull);
     }else if(!isBarrier(it.type))powerModel(it,z,t);
     else if(it.type==='crate'){

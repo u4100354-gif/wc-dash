@@ -47,9 +47,27 @@ test('jump interrupts a roll immediately, without an animation lock',()=>{
  const {run}=game();run('start();move("down");for(let i=0;i<20;i++)tick(1/120);move("up");tick(1/120)');
  assert.ok(run('height')>0);assert.ok(run('velocity')>0);assert.equal(run('rollAge'),-1);
 });
+test('ordinary down rolls forward; changing lanes during a slide selects a side roll',()=>{
+ const {run}=game();run('start();move("down")');assert.equal(run('rollLateral'),0);
+ run('move("right")');assert.equal(run('rollLateral'),1);
+ run('move("left")');assert.equal(run('rollLateral'),-1);
+ run('move("down")');assert.equal(run('rollLateral'),0);
+});
 test('coins riding a flow are collected from its roof once',()=>{
  const {run}=game();run('start();trains=[];items=[];flows=[{a:0,front:0,size:12,top:1.8,trigger:0,tokens:[{offset:.25,done:false}]}];height=1.8;velocity=0;tick(1/120);tick(1/120)');
  assert.equal(run('coins'),1);assert.equal(run('flowHits'),0);
+});
+test('upgraded active boots collect coins and keys passed underneath a jump',()=>{
+ const {run}=game();run('start();trains=[];flows=[];profile.boots=1;bootsTime=5;height=3.2;velocity=1;items=[{type:"poo",a:0,z:.5,y:.65},{type:"key",a:0,z:.6,y:0}];tick(1/120)');
+ assert.equal(run('coins'),1);assert.equal(run('runKeys'),1);
+});
+test('boots do not vacuum other lanes or work without an upgrade',()=>{
+ const {run}=game();run('start();trains=[];flows=[];profile.boots=0;bootsTime=5;height=3;velocity=1;items=[{type:"poo",a:0,z:.5,y:.65}];tick(1/120)');assert.equal(run('coins'),0);
+ run('profile.boots=2;items=[{type:"poo",a:2.2,z:distance+.5,y:.65}];tick(1/120)');assert.equal(run('coins'),0);
+});
+test('player can jump from one moving train roof to the next across a six metre gap',()=>{
+ const {run}=game();run('start();items=[];flows=[];trains=[{a:0,z:0,entry:0,exit:0,deck:18,kind:"metro",trigger:0,incomingSpeed:8},{a:0,z:24,entry:0,exit:0,deck:18,kind:"metro",trigger:0,incomingSpeed:8}];distance=4;height=ground=1.9;let leaped=false;for(let i=0;i<180&&state==="run";i++){if(!leaped&&trainEnd(trains[0])-distance<8){move("up");leaped=true}tick(1/120)}');
+ assert.equal(run('state'),'run');assert.ok(run('distance>trainEnd(trains[0])'));assert.ok(Math.abs(run('height')-1.9)<.02);
 });
 test('new route is wired into the playable first level',()=>{
  const {run}=game();run('start()');
@@ -66,13 +84,14 @@ test('a frontal encounter with an incoming train causes a real collision',()=>{
  const {run}=game();run('start();items=[];trains=[{a:0,z:3,entry:0,exit:0,deck:20,kind:"express",incomingSpeed:8,trigger:0}];for(let i=0;i<80&&state==="run";i++)tick(1/120)');
  assert.equal(run('state'),'lost');
 });
-test('showcase can be completed on the ground without invulnerability or revives',()=>{
+test('showcase can be completed with jumps and without invulnerability or revives',()=>{
  const {run}=game();
  const result=run(`start();
- const steering=[[0,1],[55,0],[132,-1],[148,0],[173,-1],[280,0],[294,1],[319,0],[355,1],[474,0],[650,-1]];
- let next=0,steps=0;
+ const steering=[[0,1],[55,0],[132,-1],[311,1],[325,0],[355,1],[485,0],[650,-1]];
+ let next=0,steps=0,jumped=false,jump2=false,jump3=false;
  while((state==='run'||state==='finish')&&steps++<8000){
   if(next<steering.length&&distance>=steering[next][0]){lane=steering[next][1];next++}
+  if(!jumped&&distance>=155){move('up');jumped=true;} if(!jump2&&distance>=296){move('up');jump2=true;} if(!jump3&&distance>=310&&grounded()){move('up');jump3=true;}
   tick(1/120);
  }
  ({state,distance,elapsed,revived,lane,x,flowHits,cause:$('heading').textContent,stumbleCooldown,profileFirst:profile.first});`);

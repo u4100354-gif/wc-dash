@@ -5,7 +5,7 @@ window.THREE=THREE;window.RoundedBoxGeometry=RoundedBoxGeometry;window.OrbitCont
 const scripts=['inspector','showcase','trains','three-stage','characters','sewer','environment','world','sound','endless','shop','game'];
 try {
  for(const name of scripts) await new Promise((resolve,reject)=>{
-  const script=document.createElement('script');script.src=`${name}.js?v=6.1`;
+  const script=document.createElement('script');script.src=`${name}.js?v=6.4`;
   script.onload=resolve;script.onerror=()=>reject(new Error(`Не удалось загрузить ${name}.js`));document.body.append(script);
  });
 } catch(error){

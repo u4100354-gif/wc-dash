@@ -38,8 +38,10 @@ const animations=[
  clip(hero,'FastRun',Math.PI*2/17.5,t=>({t,phase:t*17.5,speed:17})),
  clip(hero,'Sprint',Math.PI*2/21,t=>({t,phase:t*21,speed:21})),
  clip(hero,'Idle',3,t=>({t,idle:true})),
- clip(hero,'Jump',1,t=>({t,jump:true,phase:0,y:Math.max(0,8.25*t-8.5*t*t),velocity:8.25-17*t})),
+ clip(hero,'Jump',1,t=>({t,jump:true,phase:0,takeoffPhase:0,speed:17,y:Math.max(0,8.25*t-8.5*t*t),supportGap:Math.max(0,8.25*t-8.5*t*t),velocity:8.25-17*t})),
  clip(hero,'ShoulderRoll',.8,t=>({t,phase:0,slide:Math.min(1,t/.07,(.8-t)/.06),roll:t/.8})),
+ clip(hero,'SideRollLeft',.8,t=>({t,phase:0,slide:Math.min(1,t/.07,(.8-t)/.06),roll:t/.8,rollDirection:-1})),
+ clip(hero,'SideRollRight',.8,t=>({t,phase:0,slide:Math.min(1,t/.07,(.8-t)/.06),roll:t/.8,rollDirection:1})),
  clip(hero,'Ride',2,t=>({t,phase:0,riding:true}))
 ];
 hero.update({idle:true});
@@ -49,4 +51,4 @@ const cat=context.createMarsCat(new THREE.Group());
 const catClips=[clip(cat,'TailSway',2.6,t=>({t,preview:true}))];cat.update({preview:true});
 const catBuffer=await exporter.parseAsync(cat.root,{binary:true,animations:catClips});
 await fs.writeFile('assets/models/mars.glb',Buffer.from(catBuffer));
-console.log('Exported skinned Denis (7 clips) and Mars (1 clip) as editable GLB files.');
+console.log('Exported skinned Denis (9 clips) and Mars (1 clip) as editable GLB files.');

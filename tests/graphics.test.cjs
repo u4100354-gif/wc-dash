@@ -56,6 +56,7 @@ test('runner limbs are continuous weighted meshes driven by real bones',async()=
  assert.equal(limbs.length,4,'two arms and two legs must deform continuously');
  for(const limb of limbs){assert.ok(limb.skeleton.bones.length>=3);const weights=limb.geometry.getAttribute('skinWeight');
   for(let i=0;i<weights.count;i++)assert.ok(Math.abs(weights.getX(i)+weights.getY(i)+weights.getZ(i)+weights.getW(i)-1)<1e-5);
+  const normals=limb.geometry.getAttribute('normal');for(let i=0;i<normals.count;i++)assert.ok(Math.hypot(normals.getX(i),normals.getY(i),normals.getZ(i))>.99);
  }
  hero.update({t:1,phase:2});root.updateMatrixWorld(true);
  for(const limb of limbs){limb.skeleton.update();const pos=new three.Vector3();for(let i=0;i<limb.geometry.attributes.position.count;i+=19){limb.getVertexPosition(i,pos);assert.ok(pos.toArray().every(Number.isFinite));}}
@@ -64,8 +65,14 @@ test('down action performs a full shoulder roll instead of just leaning the tors
  const {ctx,three}=await setup();const root=new three.Group(),hero=ctx.createRunner(root);
  hero.update({slide:1,roll:.5,t:.4,phase:0});
  const pivot=root.getObjectByName('somersault');assert.ok(pivot,'body needs a roll pivot');
- assert.ok(Math.abs(pivot.rotation.x)>2,'body must actually turn over');
+ assert.ok(Math.abs(pivot.rotation.x)>2,'ordinary roll must turn forward');
  hero.update({slide:0,roll:0,t:.9,phase:0});assert.ok(Math.abs(pivot.rotation.x)<1e-6);
+});
+test('side roll is chosen explicitly by lane-change direction',async()=>{
+ const {ctx,three}=await setup(),root=new three.Group(),hero=ctx.createRunner(root);
+ hero.update({slide:1,roll:.5,rollDirection:1});const p=root.getObjectByName('somersault');
+ assert.ok(p.rotation.y < -2);
+ hero.update({slide:1,roll:.5,rollDirection:-1});assert.ok(p.rotation.y>0);
 });
 test('planted foot stays at the same world position while the body advances',async()=>{
  const {ctx,three}=await setup();const root=new three.Group(),hero=ctx.createRunner(root),points=[];
@@ -89,7 +96,7 @@ test('complete rolling motion stays close to the supporting ground and below the
    for(let i=0;i<node.geometry.attributes.position.count;i+=3){node.getVertexPosition(i,point);point.applyMatrix4(node.matrixWorld);min=Math.min(min,point.y);max=Math.max(max,point.y);}
   });
   assert.ok(min>=-.065&&min<.06,`ground contact at ${frame}: ${min}`);
-  assert.ok(max<1.08,`clearance at ${frame}: ${max}`);
+  assert.ok(max<1.38,`forward-roll clearance at ${frame}: ${max}`);
  }
 });
 test('inspection camera moves smoothly while a key is held and stops on release',async()=>{
@@ -101,4 +108,32 @@ test('inspection camera moves smoothly while a key is held and stops on release'
  assert.ok(camera.position.distanceTo(initial)>1,'holding must move on each frame');
  assert.equal(typeof inspect.release,'function');inspect.release('KeyW');
  const stopped=camera.position.clone();inspect.update(.25);assert.ok(camera.position.distanceTo(stopped)<1e-8);
+});
+test('Denis restores his original head proportions and has closed shoulder transitions',async()=>{
+ const {ctx,three}=await setup(),root=new three.Group(),hero=ctx.createRunner(root);
+ hero.update({idle:true});
+ assert.equal(root.getObjectByName('head').scale.x,1);
+ assert.ok(root.getObjectByName('hoodieBody').scale.x<=.26);
+ assert.ok(root.getObjectByName('hoodieBody').scale.z<=.17);
+ for(const name of ['clavicleYoke','leftDeltoid','rightDeltoid'])assert.ok(root.getObjectByName(name),name);
+});
+test('shoulder roll keeps body scale and anatomical knee flexion instead of shrinking into a ball',async()=>{
+ const {ctx,three}=await setup(),root=new three.Group(),hero=ctx.createRunner(root);
+ for(let i=1;i<20;i++){
+  hero.update({slide:1,roll:i/20,phase:0});
+  assert.equal(root.getObjectByName('hips').scale.x,1,'body must not shrink');
+  assert.ok(root.getObjectByName('leftKnee').rotation.x<=2.35,'knee flexion stays plausible');
+ }
+});
+test('jump unfolds the legs before landing instead of keeping the apex tuck',async()=>{
+ const {ctx,three}=await setup(),root=new three.Group(),hero=ctx.createRunner(root);
+ hero.update({jump:true,velocity:0,supportGap:2,takeoffPhase:1});const apex=root.getObjectByName('leftKnee').rotation.x;
+ hero.update({jump:true,velocity:-7,supportGap:.15,takeoffPhase:1});
+ assert.ok(root.getObjectByName('leftKnee').rotation.x<apex*.6);
+});
+test('menu cat position leaves clear space beside Denis',async()=>{
+ const {ctx,three}=await setup(),parent=new three.Group(),hero=ctx.createRunner(parent),cat=ctx.createMarsCat(parent);
+ hero.update({idle:true,angle:-2.32});cat.update({x:1.55,z:.25,preview:true,angle:-2.12});parent.updateMatrixWorld(true);
+ const a=new three.Box3().setFromObject(hero.root),b=new three.Box3().setFromObject(cat.root);
+ assert.ok(b.min.x>a.max.x+.05,`separation: ${b.min.x-a.max.x}`);
 });
