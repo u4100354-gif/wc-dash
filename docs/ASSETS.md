@@ -1,4 +1,4 @@
-# WC Dash 6.5: assets and tools
+# WC Dash 6.6: assets and tools
 
 All character meshes, articulated animation logic, trains, station props and sign
 textures in this version were authored for this project. No paid asset packs or
@@ -6,8 +6,13 @@ Subway Surfers assets are included.
 
 - Three.js **0.187.0**, MIT: `vendor/three/`. License is included beside the files.
 - Runtime models and poses: `characters.js`; railway environment: `environment.js`.
-- Editable exchange models: `assets/models/denis.glb` (Run, FastRun, Sprint, Idle, Jump, ShoulderRoll, SideRollLeft, SideRollRight, Ride, ToiletFinish)
-  and `assets/models/mars.glb` (TailSway).
+- Editable exchange models: `assets/models/denis.glb` (21 clips) and
+  `assets/models/mars.glb` (13 clips).
+- Both rigs include 12 matched clips: RideSlow, Ride, RideSprint, RideTurnLeft,
+  RideTurnRight, RideJump, RideBoostJump, RideLand, RideDuck, RideMount,
+  RideDismount and RideRecoil. Runtime timing and the saddle contact point are
+  shared through `ride-motion.js`. The cat has four articulated leg chains;
+  human rolling is replaced by a coordinated mounted duck.
 - Denis has four continuous skinned limb surfaces, each controlled by a three-bone
   chain with blended joint weights. Runtime motion includes foot placement, speed
   stages, cross steps and ground contact for a full shoulder roll. The GLB exports

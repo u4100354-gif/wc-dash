@@ -10,13 +10,81 @@ async function setup(){
   setPixelRatio(){} setSize(){} render(scene,camera){scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);}
  }
  const ctx=vm.createContext({THREE:{...three,WebGLRenderer:Renderer},devicePixelRatio:1,console,Math});
- for(const file of ['inspector.js','presentation.js','three-stage.js','characters.js','world.js'])if(fs.existsSync(file))vm.runInContext(fs.readFileSync(file,'utf8'),ctx);
+ for(const file of ['inspector.js','presentation.js','ride-motion.js','three-stage.js','characters.js','world.js'])if(fs.existsSync(file))vm.runInContext(fs.readFileSync(file,'utf8'),ctx);
  return {ctx,three};
 }
 test('existing game world uses the Three.js backend',async()=>{
  const {ctx}=await setup();
  const world=ctx.createWorld({clientWidth:390,clientHeight:844,getContext:()=>null});
  assert.equal(world.engine,'three.js');
+});
+
+test('boots colour only footwear while pelvis, seat and both trouser legs keep the selected skin',async()=>{
+ const {ctx,three}=await setup(),hero=ctx.createRunner(new three.Group());
+ for(const pants of ['324356','becbd0','272d38']){
+  const skin={jacket:'ec7440',trim:'f58d51',accent:'f3bc69',pants,kind:'classic'};
+  hero.update({skin,boots:false});
+  for(const boots of [true,true,false,true,false]){
+   hero.update({skin,boots,jump:true,velocity:-2,y:3,riding:true});
+   for(const name of ['pantsPelvis','pantsSeatLeft','pantsSeatRight','leftLegSurface','rightLegSurface'])assert.equal(hero.root.getObjectByName(name).material.color.getHexString(),pants,name);
+   for(const side of ['left','right']){
+    const shoe=hero.root.getObjectByName(side+'Shoe');
+    assert.ok(shoe.children.some(n=>n.isMesh&&n.material.color.getHexString()===(boots?'419ed8':skin.accent)),'bonus must change the shoe');
+   }
+  }
+ }
+});
+
+test('mounted duck is a low coordinated pose without a human somersault',async()=>{
+ const {ctx,three}=await setup(),parent=new three.Group(),hero=ctx.createRunner(parent);
+ hero.update({riding:true,mount:1,slide:1,roll:.5,phase:2});parent.updateMatrixWorld(true);
+ const pivot=hero.root.getObjectByName('somersault');assert.ok(Math.abs(pivot.rotation.x)<.01,'rider must stay seated on the cat');
+ const bounds=new three.Box3().setFromObject(hero.root);assert.ok(bounds.max.y<1.38,`mounted duck must clear low crossbar: ${bounds.max.y}`);
+ for(const bank of [-1,0,1])for(let phase=0;phase<6.3;phase+=.4){
+  hero.update({riding:true,mount:1,slide:1,boots:true,phase,bank});parent.updateMatrixWorld(true);
+  assert.ok(new three.Box3().setFromObject(hero.root).max.y<1.46,'mounted duck must clear the crossbar while steering');
+ }
+});
+
+test('mounted jump and landing have distinct rider poses rather than one fixed seated pose',async()=>{
+ const {ctx,three}=await setup(),hero=ctx.createRunner(new three.Group());
+ const pose=p=>{hero.update({riding:true,mount:1,phase:2,...p});return ['hips','torso','leftLegRoot','leftArmRoot'].flatMap(name=>{const n=hero.root.getObjectByName(name);return [...n.position,...n.rotation.toArray().slice(0,3)];});};
+ const neutral=pose({}),launch=pose({jump:true,velocity:8.25,supportGap:.5}),apex=pose({jump:true,velocity:0,supportGap:2}),land=pose({landing:1});
+ assert.notDeepEqual(launch,neutral);assert.notDeepEqual(apex,launch);assert.notDeepEqual(land,neutral);
+ const leg=p=>{hero.update({riding:true,mount:1,phase:2,...p});return ['leftLegRoot','leftKnee'].map(n=>hero.root.getObjectByName(n).rotation.x)};
+ assert.notDeepEqual(leg({jump:true,velocity:0}),leg({jump:true,velocity:8.25}),'legs must grip differently at takeoff and at the apex');
+});
+
+test('rider pelvis stays on the animated cat back throughout gallop, banks, duck and jump',async()=>{
+ const {ctx,three}=await setup(),group=new three.Group(),hero=ctx.createRunner(group),cat=ctx.createMarsCat(group);
+ for(const state of [{speed:13},{speed:21},{bank:-1},{bank:1},{slide:1},{jump:true,velocity:8},{jump:true,velocity:0},{jump:true,velocity:-7,supportGap:.3},{landing:1}]){
+  for(let phase=0;phase<6.3;phase+=.37){
+   const p={...state,phase,x:1,y:2,angle:.17,mount:1},motion=ctx.sampleRideMotion(p);
+   hero.update({...p,motion,riding:true});cat.update({...p,motion,z:-.2});group.updateMatrixWorld(true);
+   const seat=new three.Vector3(0,.51,-.10).applyMatrix4(cat.root.getObjectByName('catBody').matrixWorld);
+   seat.add(new three.Vector3(0,.145,0).applyQuaternion(cat.root.quaternion));
+   const pelvis=hero.root.getObjectByName('hips').getWorldPosition(new three.Vector3());
+   assert.ok(seat.distanceTo(pelvis)<1e-5,`rider drift ${seat.distanceTo(pelvis)}`);
+  }
+ }
+});
+
+test('cat stance paw keeps its ground contact while the body advances and bobs',async()=>{
+ const {ctx,three}=await setup(),parent=new three.Group(),cat=ctx.createMarsCat(parent),points=[];
+ for(let frame=0;frame<5;frame++){
+  const t=frame/300,distance=t*17;cat.update({t,phase:t*17.5,speed:17,distance});parent.updateMatrixWorld(true);
+  const point=cat.root.getObjectByName('frontLeftPaw').getWorldPosition(new three.Vector3());
+  assert.ok(Math.abs(point.y-.10)<.005,`paw left the floor: ${point.y}`);points.push(point.z+distance);
+ }
+ assert.ok(Math.max(...points)-Math.min(...points)<.005,'planted paw must not slide with the cat');
+});
+
+test('cat has four articulated paws and changes its body and paws for jump, duck and landing',async()=>{
+ const {ctx,three}=await setup(),cat=ctx.createMarsCat(new three.Group());
+ for(const name of ['frontLeftPaw','frontRightPaw','hindLeftPaw','hindRightPaw'])assert.ok(cat.root.getObjectByName(name),name);
+ const pose=p=>{cat.update({phase:2,t:.2,...p});return ['catBody','frontLeftLeg','frontLeftKnee'].flatMap(name=>{const n=cat.root.getObjectByName(name);return [...n.position,...n.rotation.toArray().slice(0,3)];});};
+ const run=pose({}),jump=pose({jump:true,velocity:0}),duck=pose({slide:1}),land=pose({landing:1});
+ assert.notDeepEqual(jump,run);assert.notDeepEqual(duck,run);assert.notDeepEqual(land,run);
 });
 
 test('portrait chase camera centres the corridor and keeps Denis visible in every lane and in flight',async()=>{
@@ -54,7 +122,10 @@ test('complete scenes render all six routes, flight and finish at desktop and mo
  for(const file of ['showcase','routes','sewer','environment','trains','endless','shop','game'])vm.runInContext(fs.readFileSync(file+'.js','utf8'),ctx,{filename:file+'.js'});
  for(const width of [390,1366])for(let index=0;index<6;index++){
   nodes.get('screen').clientWidth=width;
-  vm.runInContext(`chooseRoute(${index});start();render3D();distance=150;beginFlight();height=10.6;cameraLift=10.6;render3D();flight=null;state='finish';toiletTime=1.8;height=0;render3D()`,ctx);
+  vm.runInContext(`chooseRoute(${index});start();render3D();catTime=12;catMount=1;bootsTime=3;poseSlide=1;runCycle=2;rollAge=.4;render3D()`,ctx);
+  const mountedStage=vm.runInContext('render3D.stage',ctx);
+  assert.equal(mountedStage.content.getObjectByName('Denis').userData.rideAction,'duck');assert.equal(mountedStage.content.getObjectByName('Mars').userData.rideAction,'duck');
+  vm.runInContext(`poseSlide=0;distance=150;beginFlight();height=10.6;cameraLift=10.6;render3D();flight=null;state='finish';toiletTime=1.8;height=0;render3D()`,ctx);
   const stage=vm.runInContext('render3D.stage',ctx);
   assert.ok(stage.camera.matrixWorld.elements.every(Number.isFinite));
   for(const shape of stage.shapes)assert.ok(shape.used>0?shape.used<16384:true);

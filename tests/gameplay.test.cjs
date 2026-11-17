@@ -12,13 +12,28 @@ function game(saved={}){
   document:{hidden:false,getElementById(id){if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);},querySelector:()=>node(),querySelectorAll:s=>s==='[data-route]'?[node(),node(),node()]:[],addEventListener(){},createElement:()=>node()},
   soundscape:{sync(){},effect(){},init(){},wake(){},getVolumes:()=>({music:.7,fx:.8})},
   createWorld:()=>()=>{},requestAnimationFrame(){},addEventListener(){}});
- for(const file of ['inspector','showcase','routes','presentation','trains','endless','shop','game'])if(fs.existsSync(file+'.js'))vm.runInContext(fs.readFileSync(file+'.js','utf8'),ctx,{filename:file+'.js'});
+ for(const file of ['inspector','showcase','routes','presentation','ride-motion','trains','endless','shop','game'])if(fs.existsSync(file+'.js'))vm.runInContext(fs.readFileSync(file+'.js','utf8'),ctx,{filename:file+'.js'});
  return {run:code=>vm.runInContext(code,ctx),storage};
 }
 test('sewer sections restore three rideable flow types in the playable route',()=>{
  const {run}=game();run('start()');
  assert.ok(run('flows.length')>=6,'sewer encounters must exist');
  assert.ok(run('new Set(flows.map(f=>f.kind)).size')>=3);
+});
+
+test('cat mounts smoothly, ducks under a crossbar without consuming its shield, and jump interrupts the duck',()=>{
+ const {run}=game();run('start();items=[];trains=[];flows=[];profile.cats=1;activateCat();tick(1/120)');
+ assert.ok(run('catMount')>0&&run('catMount')<.2);
+ run('for(let i=0;i<60;i++)tick(1/120);items=[{type:"hurdle",a:0,z:distance+3,y:0}];move("down");for(let i=0;i<45;i++)tick(1/120)');
+ assert.equal(run('state'),'run');assert.ok(run('catTime')>20,'crossbar must not consume the cat');assert.ok(run('catMount')>.99);
+ run('move("up");tick(1/120)');assert.ok(run('velocity')>0);assert.equal(run('rollAge'),-1);
+});
+
+test('cat expiry blends out and development freeze preserves mounting and recoil clocks',()=>{
+ const {run}=game();run('start();items=[];trains=[];flows=[];catTime=10;tick(1/120);catReaction=.6;toggleInspection()');
+ const before=run('[catMount,catReaction,runCycle].join(",")');run('frame(1000);frame(2000)');assert.equal(run('[catMount,catReaction,runCycle].join(",")'),before);
+ run('toggleInspection();for(let i=0;i<80;i++)tick(1/120);catTime=0;tick(1/120)');assert.ok(run('catMount')>0&&run('catMount')<1);
+ run('for(let i=0;i<80;i++)tick(1/120)');assert.equal(run('catMount'),0);
 });
 
 test('finish actually jumps onto the toilet before settling into the seat',()=>{

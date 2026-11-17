@@ -6,12 +6,12 @@ function createWorld(canvas) {
  const decor=typeof createDepotDecor==='function'?createDepotDecor(stage):{draw(){}};
  const font={K:['101','110','100','110','101'],F:['111','100','110','100','100'],W:['10101','10101','10101','11011','10001'],C:['111','100','100','100','111'],'Л':['011','101','101','101','101'],'И':['101','101','111','111','101'],'Ф':['010','111','111','010','010'],'Т':['111','010','010','010','010'],'М':['10001','11011','10101','10001','10001'],'А':['010','101','111','101','101'],'Р':['110','101','110','100','100'],'С':['111','100','100','100','111'],'У':['101','101','011','001','110'],'П':['111','101','101','101','101'],'Е':['111','100','111','100','111'], '→':['00100','00010','11111','00010','00100']};
  function glyph(ch,a,b,z,p,color,ry=0){const rows=font[ch];if(!rows)return;rows.forEach((row,j)=>[...row].forEach((v,i)=>{if(v==='1'){const dx=(i-(row.length-1)/2)*p;box(a+dx*Math.cos(ry),b+(2-j)*p,z-dx*Math.sin(ry),p*.98,p*.98,p*.36,color,ry)}}))}
- function person(a,b,z,angle,t,jump,idle){
+ function person(a,b,z,angle,t,jump,idle,motion){
   const closing=state==='finish'||state==='win';
   runner.update({x:a,y:b,z,angle,t,phase:runCycle,idle,jump,velocity,
    slide:idle?0:poseSlide,roll:idle?0:rollAge>=0?clamp(rollAge/.8,0,1):0,rollDirection:rollLateral,bank:idle?0:poseBank,landing:idle?0:landing,
    speed:speed(),distance,dirty:!idle&&flowHits>0,takeoffPhase:jumpTakeoffPhase,supportGap:height-ground,
-   riding:!idle&&catTime>0&&!flight&&!closing,
+   riding:!idle&&catMount>.001&&!flight&&!closing,mount:catMount,motion,
    finish:closing?finishMotion(toiletTime).seat:0,anticipation:closing?finishMotion(toiletTime).anticipation:0,skin:currentSkin(),boots:bootsTime>0||bootJumpActive});
  }
  function wc(a,z){
@@ -31,8 +31,10 @@ function createWorld(canvas) {
   for(const k of [-1,1]){box(a+.14*k,.84,z-.14,.11,.15,.14,'af7241');box(a+.10*k,.65,z-.345,.045,.064,.03,'32483a');box(a+.13*k,.10,z-.17,.13,.17,.15,'f6d8a2')}
   box(a,.53,z-.35,.17,.09,.03,'f6d8a2');box(a+.16,.54,z+.33,.12,.54,.14,'cb8747',0,.26+.12*Math.sin(t*2))
  }
- function denisCat(a,b,z,t,preview=false){
-  mars.update({x:a,y:b,z,t,preview,angle:preview?-2.12:clamp((lane*2.2-x)*.15,-.25,.25),bank:preview?0:poseBank});
+ function denisCat(a,b,z,t,preview=false,motion){
+  mars.update({x:a,y:b,z,t,preview,motion,phase:runCycle,speed:speed(),distance,jump:!grounded(),velocity,supportGap:height-ground,
+   slide:preview?0:poseSlide,landing:preview?0:landing,mount:preview?1:catMount,departing:catTime<=0,reaction:preview?0:catReaction,
+   angle:preview?-2.12:clamp((lane*2.2-x)*.15,-.25,.25),bank:preview?0:poseBank});
  }
  function elevator(side,z){
   const a=side*4.02;
@@ -254,8 +256,10 @@ function createWorld(canvas) {
   shapes.forEach(sh=>sh.used=0);mars.root.visible=false;world(d,menu);decor.draw(d,menu);
   stage.setSewer?.(!menu?routeSewerBlendAt(d)*(flight?.15:1):0);
   const finishPose=closing?finishMotion(toiletTime):null;
+  const rideMotion=menu?null:sampleRideMotion({t,phase:runCycle,speed:speed(),jump:!grounded(),velocity,supportGap:height-ground,
+   slide:poseSlide,landing,bank:poseBank,mount:catMount,departing:catTime<=0,reaction:catReaction,boots:bootsTime>0||bootJumpActive});
   const heroX=menu?0:x,heroZ=finishPose?.z||0;
-  person(heroX,menu?0:height,heroZ,menu?-2.32:closing?finishPose.angle:clamp((lane*2.2-x)*.15,-.25,.25),t,closing?finishPose.airborne:!grounded(),menu);
+  person(heroX,menu?0:height,heroZ,menu?-2.32:closing?finishPose.angle:clamp((lane*2.2-x)*.15,-.25,.25),t,closing?finishPose.airborne:!grounded(),menu,rideMotion);
   if(menu){denisCat(1.55,0,.25,t,true);wc(mobile?1.70:2.25,3.85);token(-1.3,1.8,t)}
   else{
    for(const f of flows){
@@ -269,7 +273,7 @@ function createWorld(canvas) {
     for(const pickup of f.tokens||[])if(!pickup.done)token(f.a,front+pickup.offset,t,(f.top??1.48)+.65);
    }
    for(const train of trains){carriage(train,d);for(const pickup of train.roofTokens||[])if(!pickup.done&&train.z+train.entry+pickup.offset-d<90&&train.z+train.entry+pickup.offset-d>-16)token(train.a,train.z+train.entry+pickup.offset-d,t,roofHeight+.65);}
-   if(!closing&&!flight&&catTime>0)denisCat(x,height,-.2,t);
+   if(!closing&&!flight&&catMount>.001)denisCat(x,height,-.2,t,false,rideMotion);
    if(flight)jetTrail(t);
    if(length-d<66)wc(0,length-d+toiletCenterZ);
    for(let idx=firstNearby;idx<items.length&&items[idx].z<d+90;idx++){const it=items[idx],z=it.z-d,a=it.a;

@@ -67,7 +67,7 @@ function planFlow(target,cars,index,incomingOverride){
 function hitFlow(f){
  if(grace>0)return true;
  flowHits++;cleanStart=distance;
- if(flowHits===1){stumbleTime=3;grace=.7;notice('Испачкался! Следующий поток опасен');scatter(x,height+.8,distance,'69452c');soundscape.effect('stumble');return true;}
+ if(flowHits===1){if(catTime>0)catReaction=.7;stumbleTime=3;grace=.7;notice('Испачкался! Следующий поток опасен');scatter(x,height+.8,distance,'69452c');soundscape.effect('stumble');return true;}
  return absorbHit('Второй удар потоком');
 }
 function updateFlows(dt){
@@ -100,7 +100,7 @@ function updateFlows(dt){
  return true
 }
 let ground=0,cameraLift=0,magnet=0,grace=0,finishFrom=0;
-let flight=null,catTime=0,catCooldown=0;
+let flight=null,catTime=0,catCooldown=0,catMount=0,catReaction=0;
 const grounded=()=>height<=ground+.015;
 const speedAt=z=>marathon()?13+Math.min(10,z/100):13+8*z/length;
 const speed=()=>speedAt(distance)*(stumbleTime>0&&!flight?.72:1);
@@ -181,11 +181,12 @@ function absorbHit(cause,light=false){
  if(grace>0)return true;
  cleanStart=distance;
  if(light&&stumbleCooldown<=0){
+  if(catTime>0)catReaction=1;
   stumbleTime=3;stumbleCooldown=10;grace=.35;
   notice('Споткнулся · хромота на 3 с');soundscape.effect('stumble');return true
  }
  if(!catTime){end(false,cause);return false}
- catTime=0;catCooldown=5;grace=1.5;scatter(x,height+1,distance,'f1d4a6');notice('Кот спас!');soundscape.effect('shield');return true
+ catTime=0;catReaction=1;catCooldown=5;grace=1.5;scatter(x,height+1,distance,'f1d4a6');notice('Кот спас!');soundscape.effect('shield');return true
 }
 const collected=()=>letters.length;
 const wordAt=i=>marathon()?(wordKm>0&&!kmWordDone?words[(wordKm-1)%words.length]:''):(words[i]||'');
@@ -227,7 +228,7 @@ function ui(){
  soundscape.sync(!devClock.frozen&&(state==='run'||state==='finish'),mute);
  $('cover').hidden=state!=='menu';$('hud').hidden=state==='menu';$('pause').hidden=state!=='run';$('overlay').hidden=!['win','lost','pause'].includes(state);status()
 }
-function start(){bootJumpActive=false;flowHits=0;rollAge=-1;rollLateral=0;if(devClock.frozen)toggleInspection();runKeys=stumbleTime=stumbleCooldown=0;bootsTime=paidCoins=cleanStart=wordKm=0;revived=missionDone=kmWordDone=false;settled=false;prepareRoute();state='run';lane=x=height=velocity=slide=distance=coins=completed=elapsed=toiletTime=0;ground=cameraLift=magnet=grace=0;flight=null;catTime=catCooldown=0;poseSlide=poseBank=landing=runCycle=0;diving=false;flecks=[];letters=[];if(marathon())resetDistricts();else items=course();$('toast').textContent='';try{soundscape.init()}catch{}ui()}
+function start(){catMount=catReaction=0;bootJumpActive=false;flowHits=0;rollAge=-1;rollLateral=0;if(devClock.frozen)toggleInspection();runKeys=stumbleTime=stumbleCooldown=0;bootsTime=paidCoins=cleanStart=wordKm=0;revived=missionDone=kmWordDone=false;settled=false;prepareRoute();state='run';lane=x=height=velocity=slide=distance=coins=completed=elapsed=toiletTime=0;ground=cameraLift=magnet=grace=0;flight=null;catTime=catCooldown=0;poseSlide=poseBank=landing=runCycle=0;diving=false;flecks=[];letters=[];if(marathon())resetDistricts();else items=course();$('toast').textContent='';try{soundscape.init()}catch{}ui()}
 function modal(label,title,details,button){$('label').textContent=label;$('heading').textContent=title;$('result').textContent=details;$('action').textContent=button;$('toast').textContent='';ui()}
 function end(won,cause){
  if(settled)return;settled=true;profile.wallet+=coins-paidCoins;paidCoins=coins;
@@ -275,6 +276,9 @@ function move(action){
 }
 function tick(dt){
  elapsed+=dt;
+ const mountTarget=catTime>0&&!flight&&state==='run'?1:0;
+ catMount+=(mountTarget-catMount)*(1-Math.exp(-16*dt));if(Math.abs(mountTarget-catMount)<.001)catMount=mountTarget;
+ catReaction*=Math.exp(-8*dt);
  if(rollAge>=0){rollAge+=dt;if(rollAge>.8)rollAge=-1;}
  const effort=clamp((speed()-13)/8,0,1);runCycle+=dt*(effort<.33?14.5:effort<.70?17.5:21);
  if(state==='finish'){toiletTime+=dt;x=finishFrom*(1-ease(toiletTime/.55));const pose=finishMotion(toiletTime);height=pose.y;velocity=pose.velocity;if(toiletTime>=5.34)end(true);return}
