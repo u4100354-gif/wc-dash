@@ -108,7 +108,7 @@ const speedAt=z=>marathon()?13+Math.min(10,z/100):13+8*z/length;
 const speed=()=>speedAt(distance)*(stumbleTime>0&&!flight?.72:1);
 const isBarrier=type=>type==='crate'||type==='bar'||type==='hurdle'||type==='wall';
 // Physics and both renderers share the actual clearance of each obstacle.
-const hurdleBottom=1.08,hurdleTop=1.32,slideHeight=1.38,barBottom=1.39,barTop=2.45;
+const hurdleBottom=1.46,hurdleTop=1.70,slideHeight=1.38,barBottom=1.39,barTop=2.45;
 function bootsAttract(a,z,y){
  return bootsTime>0&&profile.boots>0&&!flight&&!grounded()&&Math.abs(a-x)<.95&&z-distance<=1.2&&z-distance>=-3&&y<=height+.7;
 }

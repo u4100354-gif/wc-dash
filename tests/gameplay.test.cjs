@@ -47,6 +47,15 @@ test('jump interrupts a roll immediately, without an animation lock',()=>{
  const {run}=game();run('start();move("down");for(let i=0;i<20;i++)tick(1/120);move("up");tick(1/120)');
  assert.ok(run('height')>0);assert.ok(run('velocity')>0);assert.equal(run('rollAge'),-1);
 });
+test('striped low crossbar allows forward rolling underneath',()=>{
+ const {run}=game();run('start();trains=[];flows=[];items=[{type:"hurdle",a:0,z:3,y:0}];move("down");for(let i=0;i<45&&state==="run";i++)tick(1/120)');
+ assert.equal(run('state'),'run');assert.ok(run('distance')>3.6);
+ assert.ok(run('hurdleBottom-slideHeight')>=.06,'rendered opening must clear the full roll');
+});
+test('striped crossbar still collides when standing and can be jumped over',()=>{
+ const standing=game();standing.run('start();trains=[];flows=[];items=[{type:"hurdle",a:0,z:3,y:0}];for(let i=0;i<45&&state==="run";i++)tick(1/120)');assert.equal(standing.run('state'),'lost');
+ const jumping=game();jumping.run('start();trains=[];flows=[];items=[{type:"hurdle",a:0,z:6.5,y:0}];move("up");for(let i=0;i<75&&state==="run";i++)tick(1/120)');assert.equal(jumping.run('state'),'run');assert.ok(jumping.run('distance')>7);
+});
 test('ordinary down rolls forward; changing lanes during a slide selects a side roll',()=>{
  const {run}=game();run('start();move("down")');assert.equal(run('rollLateral'),0);
  run('move("right")');assert.equal(run('rollLateral'),1);
