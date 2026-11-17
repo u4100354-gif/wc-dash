@@ -2,6 +2,7 @@
 const shopKey='wcDashProgress5';
 const profile={wallet:0,magnet:0,shield:0,double:0,meters:0,first:false,second:false,cats:0,cat:0,keys:0,skins:[0],skin:0};
 try{Object.assign(profile,JSON.parse(localStorage.getItem(shopKey)))}catch{}
+profile.completedLevels=Array.isArray(profile.completedLevels)?profile.completedLevels.filter(n=>Number.isInteger(n)&&n>=0&&n<5):[...(profile.first?[0]:[]),...(profile.second?[1]:[])];
 // Cosmetics use a separate key wallet; existing coin purchases keep their save key.
 const skinCatalog=[
  {id:0,name:'Денис',cost:0,jacket:'ec7440',trim:'f58d51',hat:'216660',hatTop:'369486',pants:'324356',accent:'f3bc69',kind:'classic'},

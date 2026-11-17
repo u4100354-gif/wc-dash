@@ -12,13 +12,57 @@ function game(saved={}){
   document:{hidden:false,getElementById(id){if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);},querySelector:()=>node(),querySelectorAll:s=>s==='[data-route]'?[node(),node(),node()]:[],addEventListener(){},createElement:()=>node()},
   soundscape:{sync(){},effect(){},init(){},wake(){},getVolumes:()=>({music:.7,fx:.8})},
   createWorld:()=>()=>{},requestAnimationFrame(){},addEventListener(){}});
- for(const file of ['inspector','showcase','trains','endless','shop','game'])if(fs.existsSync(file+'.js'))vm.runInContext(fs.readFileSync(file+'.js','utf8'),ctx,{filename:file+'.js'});
+ for(const file of ['inspector','showcase','routes','presentation','trains','endless','shop','game'])if(fs.existsSync(file+'.js'))vm.runInContext(fs.readFileSync(file+'.js','utf8'),ctx,{filename:file+'.js'});
  return {run:code=>vm.runInContext(code,ctx),storage};
 }
 test('sewer sections restore three rideable flow types in the playable route',()=>{
  const {run}=game();run('start()');
  assert.ok(run('flows.length')>=6,'sewer encounters must exist');
  assert.ok(run('new Set(flows.map(f=>f.kind)).size')>=3);
+});
+
+test('finish actually jumps onto the toilet before settling into the seat',()=>{
+ const {run}=game();run('start();state="finish";toiletTime=.85;tick(1/120)');
+ assert.ok(run('height')>.35,'feet must leave the ground during the finish jump');
+ run('toiletTime=1.8;tick(1/120)');assert.ok(run('height')<.01,'finish jump lands');
+});
+
+test('five finite levels and the separate marathon remain selectable',()=>{
+ const {run}=game();assert.equal(run('routes.filter(r=>Number.isFinite(r.meters)).length'),5);
+ for(let i=0;i<5;i++){
+  run(`chooseRoute(${i});start()`);assert.equal(run('marathon()'),false);
+  assert.ok(run('items.length')>100);assert.ok(run('trains.some(c=>c.incomingSpeed>0)'));
+ }
+ run('chooseRoute(5);start()');assert.equal(run('marathon()'),true);assert.equal(run('length'),Infinity);
+});
+
+test('wings reach above the old tunnel crown and return to ground',()=>{
+ const {run}=game();run('start();trains=[];flows=[];items=[];beginFlight();distance=flight.start+35;advanceFlight(0)');
+ assert.ok(run('height')>=10,'KFC should fly higher than the 9.1 m tunnel');
+ run('distance=flight.end;advanceFlight(0)');assert.equal(run('flight'),null);assert.equal(run('height'),0);
+});
+
+test('each new destination can finish through its escape lanes without protection or revives',()=>{
+ for(let index=1;index<5;index++){
+  const {run}=game();run(`chooseRoute(${index});start()`);
+  run(`for(let frame=0;frame<18000&&(state==='run'||state==='finish');frame++){
+   if(state==='run'){
+    const safe=[0,1,-1][(Math.floor(distance/180)+level)%3];
+    if(lane!==safe)move(lane<safe?'right':'left');
+   }
+   tick(1/120);
+  }`);
+  assert.equal(run('state'),'win',`destination ${index+1} at ${run('distance')}m`);
+  assert.equal(run('flowHits'),0);assert.equal(run('revived'),false);
+  assert.ok(run(`profile.completedLevels.includes(${index})`));
+ }
+});
+
+test('legacy progress migrates and wins advance to the next finite destination',()=>{
+ const {run}=game({wcDashProgress5:JSON.stringify({first:true,second:true,wallet:91})});
+ assert.equal(run('profile.completedLevels.join(",")'),'0,1');
+ run('chooseRoute(3);start();distance=length;end(true);$("action").onclick()');assert.equal(run('level'),4);assert.equal(run('state'),'run');
+ run('distance=length;end(true);$("action").onclick()');assert.equal(run('level'),4,'last destination replays instead of entering marathon');
 });
 test('first flow hit dirties and slows the runner; a second distinct hit ends the run',()=>{
  const {run}=game();run('start();trains=[];items=[];flows=[{a:0,front:-.1,size:8,trigger:0,passed:false,kind:"sludge",top:1.48}];tick(1/120)');

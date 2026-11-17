@@ -73,3 +73,10 @@ dialog{width:min(92vw,430px);max-height:88dvh;padding:24px;border:0;border-radiu
 #devPanel strong{font-size:12px}#devPanel span{font-size:10px;opacity:.8}#devPanel>div{display:flex;gap:8px;margin-top:5px}#devPanel button{border:1px solid #c5cfb066;border-radius:6px;background:#f2e4c4;color:#214c46;padding:6px 10px;font-size:11px}
 @media(max-width:680px){#devPanel{left:10px;right:10px;bottom:84px;max-width:none}}
 @media(max-width:400px){.appHeader{gap:5px;padding-inline:10px}.appHeader>strong{font-size:19px}.appHeader .iconButton{width:34px;height:34px;flex-shrink:0}.record output{font-size:12px}}
+
+/* Six compact destination tickets fit in two rows, including on a phone. */
+#routes button{min-height:78px;padding:9px 8px}#routes strong{line-height:1.15;min-height:28px;font-size:11px}
+#routes button[data-completed=true] .routeNumber:after{content:" ✓";font-size:11px}
+#cover{align-items:safe center}.poster{margin-block:12px}
+@media(max-width:680px){#cover{align-items:safe flex-end}#routes button{min-height:65px;padding:7px 6px}#routes strong{font-size:10px;min-height:23px}.routeNumber{font-size:14px}.poster{margin-block:0}#routes{gap:6px}}
+@media(max-height:540px){#routes button{min-height:55px;gap:0}#routes strong{min-height:23px;font-size:10px}#routes small{font-size:8px}.routeNumber{font-size:12px}}

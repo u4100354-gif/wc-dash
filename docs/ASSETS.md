@@ -1,4 +1,4 @@
-# WC Dash 6.1: assets and tools
+# WC Dash 6.5: assets and tools
 
 All character meshes, articulated animation logic, trains, station props and sign
 textures in this version were authored for this project. No paid asset packs or
@@ -6,7 +6,7 @@ Subway Surfers assets are included.
 
 - Three.js **0.187.0**, MIT: `vendor/three/`. License is included beside the files.
 - Runtime models and poses: `characters.js`; railway environment: `environment.js`.
-- Editable exchange models: `assets/models/denis.glb` (Run, FastRun, Sprint, Idle, Jump, ShoulderRoll, Ride)
+- Editable exchange models: `assets/models/denis.glb` (Run, FastRun, Sprint, Idle, Jump, ShoulderRoll, SideRollLeft, SideRollRight, Ride, ToiletFinish)
   and `assets/models/mars.glb` (TailSway).
 - Denis has four continuous skinned limb surfaces, each controlled by a three-bone
   chain with blended joint weights. Runtime motion includes foot placement, speed

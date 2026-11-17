@@ -1,7 +1,10 @@
 'use strict';
 const $=id=>document.getElementById(id), canvas=$('screen');
 let level=0,length=720;
-const routes=[{name:'Солнечное депо',meters:720},{name:'Большой коллектор',meters:1800},{name:'Марафон',meters:Infinity}];
+const routes=levelCatalog;
+let activeRoute=null;
+const routeSewerAt=z=>inRouteSewer(activeRoute?.sewers||[],z);
+const routeSewerBlendAt=z=>routeSewerFade(activeRoute?.sewers||[],z);
 const ease=v=>{const t=Math.max(0,Math.min(1,v));return t*t*(3-2*t)};
 const words=['ЛИФТ','МАРС','УСПЕЛ'], clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
 let bootsTime=0,settled=false,paidCoins=0,revived=false,cleanStart=0,missionDone=false;
@@ -12,7 +15,6 @@ try{best=Number(localStorage.wcDashBest)||0;mute=localStorage.wcDashMuted==='yes
 let state='menu',distance=0,lane=0,x=0,height=0,velocity=0,slide=0,coins=0,completed=0,letters=[],items=[],stamp=0,noticeUntil=0,clock=0,elapsed=0,toiletTime=0;
 let poseSlide=0,poseBank=0,landing=0,flecks=[],runCycle=0,diving=false;
 let flowHits=0,rollAge=-1,rollLateral=0,jumpTakeoffPhase=0,bootJumpActive=false;
-const sections=['Солнечное депо','Экспресс-платформа','Грузовая станция'];
 function scatter(a,b,z,color){
  flecks=flecks.filter(e=>elapsed-e.at<.43);
  for(let i=0;i<8;i++){const angle=i*Math.PI/4+.4;flecks.push({at:elapsed,x:a,y:b,z,vx:Math.cos(angle)*1.6,vy:1+i%3*.58,vz:Math.sin(angle)*1.6+6,color})}
@@ -26,16 +28,16 @@ function toggleInspection(){
 }
 const rearMargin=16; // Behind the furthest chase camera, including in flight.
 let trains=[],flows=[],warning='',firstNearby=0;
-const marathon=()=>level===2;
+const marathon=()=>!Number.isFinite(routes[level].meters);
 function chooseRoute(index){
  level=index;length=routes[index].meters;
- document.querySelectorAll('[data-route]').forEach((b,i)=>b.setAttribute('aria-pressed',String(i===index)));
- $('best').textContent=index===2?profile.meters+' м':best;
- $('summary').textContent=index===2?'Парк, рынок и вокзал. Каждые 1 000 м появляется слово. Рекорд марафона — '+profile.meters+' м.':index?'1 800 м по открытым путям. Вагоны, крыши и потоки. Следи за подсказками на трассе.':'720 м · около 43 секунд. Электрички, экспрессы и грузовые вагоны. До туалета через всё депо!';
+ document.querySelectorAll('[data-route]').forEach((b,i)=>{b.setAttribute('aria-pressed',String(i===index));b.dataset.completed=String(profile.completedLevels.includes(i));});
+ $('best').textContent=marathon()?profile.meters+' м':best;
+ $('summary').textContent=routes[index].summary;
 }
 function prepareRoute(){
- if(level===0){
-  const route=buildShowcaseRoute();trains=route.trains;
+ if(!marathon()){
+  const route=activeRoute=buildDestinationRoute(level);trains=route.trains;
   for(const car of trains)if(car.incomingSpeed)car.roofTokens=Array.from({length:Math.max(3,Math.floor(car.deck/3))},(_,i)=>({offset:1+i*3,done:false}));
   flows=route.flowEncounters.map(encounter=>{
    const planned=planFlow(encounter.target,[],0,encounter.incomingSpeed);
@@ -43,21 +45,17 @@ function prepareRoute(){
   });
   warning='';firstNearby=0;return;
  }
- const starts=level?Array.from({length:15},(_,i)=>36+116*i):[56,130,201,273];
- trains=starts.flatMap((z,i)=>trainGroup(z,[1,-1,0,1,0,-1][i%6],i%2?-1:1));
- // Meet each wave in a road gap; its whole visible path uses a clear lane.
- const targets=level?starts.flatMap(z=>[z+64,z+90]):[30,121,193,264,341];
- flows=targets.map((target,i)=>planFlow(target,trains,i)).filter(Boolean);
+ activeRoute=null;trains=[];flows=[];
  warning='';firstNearby=0;
 }
 function planFlow(target,cars,index,incomingOverride){
- const pace=level===2?13+Math.min(10,target/100):13+8*target/length;
+ const pace=marathon()?13+Math.min(10,target/100):13+8*target/length;
  const incoming=incomingOverride??(level?11:8);
  const trigger=Math.max(0,target-40*pace/(pace+incoming));
  let travelTime=0;
  for(let z=trigger;z<target;z+=.25){
   const step=Math.min(.25,target-z);
-  const speedAt=level===2?13+Math.min(10,z/100):13+8*z/length;
+  const speedAt=marathon()?13+Math.min(10,z/100):13+8*z/length;
   travelTime+=step/speedAt
  }
  const frontOffset=target-trigger+incoming*travelTime;
@@ -125,7 +123,7 @@ function hitsBarrier(item){
 }
 const jumpVelocity=8.25,gravity=17; // ~2 m apex; boots retain 1.5× height.
 const jumpApex=jumpVelocity*jumpVelocity/(2*gravity),jumpHalfTime=jumpVelocity/gravity;
-const flightHeight=6.1;
+const flightHeight=10.6;
 function beginFlight(){
  const reach=Math.min(140,length-distance-12);
  if(reach<50)return;
@@ -153,16 +151,8 @@ function advanceFlight(support){
 function course(){
  const list=[],add=(type,z,a,y=0)=>list.push({type,z,a,y});
  // Each pattern has an optional challenge lane and two passing lanes.
- const challenges=level?Array.from({length:15},(_,i)=>[[14+i*116,(i%3)-1,i%2?'hurdle':'crate'],[27+i*116,((i+1)%3)-1,i%2?'bar':'hurdle']]).flat():buildShowcaseRoute().obstacles.map(it=>[it.z,it.a/2.2,it.type]);
+ const challenges=activeRoute.obstacles.map(it=>[it.z,it.a/2.2,it.type]);
  for(const [z,lane,type] of challenges)add(type,z,lane*2.2);
- // Walls on the outer routes guide the player towards the incoming stream.
- const requiredTargets=level?[100]:[];
- for(const meeting of requiredTargets){
-  const wave=flows.filter(f=>f.trigger<meeting&&meeting-f.trigger<30).at(-1);
-  if(!wave)continue;
-  wave.required=true;
-  for(const side of [-2.2,0,2.2])if(side!==wave.a)add('wall',meeting,side)
- }
 
  for(let z=5;z<length-9;z+=2){
   const near=challenges.find(([at])=>Math.abs(at-z)<=speedAt(at)*jumpHalfTime);
@@ -177,7 +167,7 @@ function course(){
   const train=trains.find(v=>!v.incomingSpeed&&z>=v.z&&z<=trainEnd(v));
   add('letter',z,train?train.a:[0,-2.2,2.2,0][i%4],train?roofAt(train,z):0)
  }
- function gear(type,z,a){if(level===0){const free=[a,0,-2.2,2.2].find(l=>!trains.some(c=>c.a===l&&z>=c.z-5&&z<=trainEnd(c)+5));if(free===undefined)return;a=free}add(type,z,a,railFloor(trains,z,a))}
+ function gear(type,z,a){if(!marathon()){const free=[a,0,-2.2,2.2].find(l=>!trains.some(c=>c.a===l&&z>=c.z-5&&z<=trainEnd(c)+5));if(free===undefined)return;a=free}add(type,z,a,railFloor(trains,z,a))}
  for(const [type,z,a] of [['magnet',7,0],['magnet',238,-2.2]])gear(type,z,a);
  for(let z=54;z<length;z+=546)gear('boots',z,0);
  for(let z=level?106:520;z<length-155;z+=1044)gear('wings',z,0);
@@ -225,7 +215,7 @@ function status(){
  $('powers').textContent=[flight?'🍗 Крылышки · '+Math.ceil(flight.end-distance)+' м · бонусы на паузе':'',flowHits>0?'Испачкан · второй поток опасен':'',stumbleTime>0?'Замедление '+Math.ceil(stumbleTime)+' с':stumbleCooldown>0?'Лёгкий удар через '+Math.ceil(stumbleCooldown)+' с':'',bootsTime>0?'Ботинки '+Math.ceil(bootsTime)+' с':'',catTime>0?'🐈 Кот '+Math.ceil(catTime)+' с':'',magnet>0?'∩ Магнит '+Math.ceil(magnet)+' с':''].filter(Boolean).join('  ·  ');
  const section=marathon()?biomeAt(distance):Math.min(2,Math.floor(distance/(length/3)));
  $('flowWarning').textContent=state==='run'?warning:'';
- $('section').textContent=marathon()?['Парк','Рынок','Вокзал'][section]:level?['Депо','Набережная','Коллектор'][section]:sewerAt(distance)?'Канализация · береги одежду':sections[section];$('routeFill').style.transform='scaleX('+(marathon()?(distance%1000)/1000:Math.min(1,distance/length))+')';
+ $('section').textContent=marathon()?['Парк','Рынок','Вокзал'][section]:routeSewerAt(distance)?'Канализация · береги одежду':routes[level].sections[section];$('routeFill').style.transform='scaleX('+(marathon()?(distance%1000)/1000:Math.min(1,distance/length))+')';
  $('distance').textContent=(marathon()?Math.floor(distance):Math.max(0,Math.ceil(length-distance)))+' м';$('count').textContent=coins;
  $('mission').textContent=missionDone?'✓ Чистые 250 м · +25':'Без удара '+Math.min(cleanGoal,Math.floor(distance-cleanStart))+'/'+cleanGoal+' м';
  const word=activeWord();$('wordLabel').textContent=marathon()&&!word?'СЛЕДУЮЩЕЕ СЛОВО':'СОБЕРИ СЛОВО';$('word').innerHTML=word?'<b>'+word.slice(0,collected())+'</b><i>'+word.slice(collected())+'</i>':marathon()?((wordKm+1)+' км'):'✓ '+words.length+'/'+words.length;
@@ -242,10 +232,10 @@ function modal(label,title,details,button){$('label').textContent=label;$('headi
 function end(won,cause){
  if(settled)return;settled=true;profile.wallet+=coins-paidCoins;paidCoins=coins;
  if(marathon())profile.meters=Math.max(profile.meters,Math.floor(distance));
- if(won&&level===0)profile.first=true;if(won&&level===1)profile.second=true;saveProfile();
+ if(won&&level===0)profile.first=true;if(won&&level===1)profile.second=true;if(won&&!marathon())profile.completedLevels=[...new Set([...profile.completedLevels,level])];saveProfile();
  state=won?'win':'lost';best=Math.max(best,score());try{localStorage.wcDashBest=String(best)}catch{}
 
- soundscape.effect(won?'win':'hit');modal(won?'ФИНИШ · WC':'ЗАБЕГ ОКОНЧЕН',won?'Успел!':cause||'Не добежал!',Math.floor(distance)+' м · Заработано '+coins+' 💩'+(runKeys?' · '+runKeys+' 🔑':''),won&&level===0?'На второй уровень →':'Ещё раз →')}
+ soundscape.effect(won?'win':'hit');modal(won?'ФИНИШ · WC':'ЗАБЕГ ОКОНЧЕН',won?'Успел!':cause||'Не добежал!',Math.floor(distance)+' м · Заработано '+coins+' 💩'+(runKeys?' · '+runKeys+' 🔑':''),won&&level<4?'Следующий уровень →':'Ещё раз →')}
 function refreshSummary(){
  const results=state==='win'||state==='lost',paused=state==='pause';
  $('overlay').dataset.state=state;$('pauseStats').hidden=$('restart').hidden=$('pauseHint').hidden=!paused;
@@ -287,9 +277,9 @@ function tick(dt){
  elapsed+=dt;
  if(rollAge>=0){rollAge+=dt;if(rollAge>.8)rollAge=-1;}
  const effort=clamp((speed()-13)/8,0,1);runCycle+=dt*(effort<.33?14.5:effort<.70?17.5:21);
- if(state==='finish'){toiletTime+=dt;x=finishFrom*(1-ease(toiletTime/1.08));if(toiletTime>=5.34)end(true);return}
+ if(state==='finish'){toiletTime+=dt;x=finishFrom*(1-ease(toiletTime/.55));const pose=finishMotion(toiletTime);height=pose.y;velocity=pose.velocity;if(toiletTime>=5.34)end(true);return}
  if(marathon())extendDistricts();
- if(level===0)advanceShowcaseTraffic(trains,dt,distance);
+ if(!marathon())advanceShowcaseTraffic(trains,dt,distance);
  const previousX=x;
  distance=Math.min(length,distance+dt*speed());x+=(lane*2.2-x)*(1-Math.exp(-15*dt));slide=Math.max(0,slide-(diving?0:dt));
  stumbleTime=Math.max(0,stumbleTime-dt);stumbleCooldown=Math.max(0,stumbleCooldown-dt);
@@ -339,7 +329,7 @@ function tick(dt){
   const z=car.z+car.entry+token.offset;
   if(!token.done&&(bootsAttract(car.a,z,roofHeight)||(Math.abs(z-distance)<.65&&Math.abs(car.a-x)<.86&&Math.abs(height-roofHeight)<.65))){token.done=true;coins++;scatter(x,height+.6,distance,'efc55a');soundscape.effect('coin');}
  }
- if(level===0&&!flight){const approaching=trains.find(c=>c.incomingSpeed&&c.z-distance>0&&c.z-distance<70);if(approaching){warning='Встречный поезд '+(approaching.a<0?'слева':approaching.a>0?'справа':'по центру')+'!';if(!approaching.warned){approaching.warned=true;soundscape.effect('alarm')}}}
+ if(!marathon()&&!flight){const approaching=trains.find(c=>c.incomingSpeed&&c.z-distance>0&&c.z-distance<70);if(approaching){warning='Встречный поезд '+(approaching.a<0?'слева':approaching.a>0?'справа':'по центру')+'!';if(!approaching.warned){approaching.warned=true;soundscape.effect('alarm')}}}
  if(elapsed>noticeUntil)$('toast').textContent='';
  while(firstNearby<items.length&&items[firstNearby].z<distance-rearMargin)firstNearby++;
  for(let i=firstNearby;i<items.length&&items[i].z<=distance+2.3;i++){
@@ -392,7 +382,7 @@ function frame(ms){const wallDt=Math.min(.07,(ms-(prev||ms))/1000),dt=devClock.a
  if(state==='run'||state==='finish'){let rest=dt;while(rest>0&&(state==='run'||state==='finish')){const step=Math.min(rest,1/120);tick(step);rest-=step}status()}
  render3D(wallDt);requestAnimationFrame(frame)}
 $('restart').onclick=start;$('catButton').onclick=()=>{activateCat();status()};
-$('start').onclick=start;$('action').onclick=()=>{if(state==='pause'){try{soundscape.init()}catch{}state='run';ui()}else {if(state==='win'&&level===0)chooseRoute(1);start()}};$('pause').onclick=pause;$('home').onclick=()=>{state='menu';height=slide=0;ui()};
+$('start').onclick=start;$('action').onclick=()=>{if(state==='pause'){try{soundscape.init()}catch{}state='run';ui()}else {if(state==='win'&&level<4)chooseRoute(level+1);start()}};$('pause').onclick=pause;$('home').onclick=()=>{state='menu';height=slide=0;chooseRoute(level);ui()};
 $('mute').onclick=()=>{mute=!mute;try{soundscape.init()}catch{}
  soundscape.sync(state==='run'||state==='finish',mute);try{localStorage.wcDashMuted=mute?'yes':'no'}catch{}status()};
 const keys={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',Space:'up',ArrowDown:'down',KeyA:'left',KeyD:'right',KeyW:'up',KeyS:'down'};

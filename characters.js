@@ -161,7 +161,7 @@ function createRunner(parent){
   const {x=0,y=0,z=0,t=0,phase=t*17,idle=false,jump=false,velocity=0,slide=0,bank=0,landing=0,riding=false,finish=0,skin,boots=false,dirty=false,distance=0,speed=16}=p;
   const effort=Math.min(1,Math.max(0,(speed-13)/8)),stage=effort<.33?0:effort<.70?1:2;
   const cadence=[14.5,17.5,21][stage],stride=[.29,.33,.36][stage];
-  const crouch=Math.max(slide,finish*.65),rolling=slide>0&&p.roll!==undefined&&p.roll>0&&p.roll<1;
+  const crouch=slide,rolling=slide>0&&p.roll!==undefined&&p.roll>0&&p.roll<1;
   const progress=rolling?p.roll:0,tuck=rolling?Math.min(smooth(progress/.13),smooth((1-progress)/.16)):0;
   const jumpMax=8.25*(boots?Math.sqrt(1.5):1),ascent=Math.max(0,Math.min(1,velocity/jumpMax));
   const flightTuck=jump?smooth(1-Math.min(1,Math.abs(velocity)/jumpMax)):0;
@@ -181,6 +181,10 @@ function createRunner(parent){
   head.rotation.y=idle?Math.sin(t*.65)*.18:-bank*.11;
   head.rotation.x=rolling?.18:jump?-.12:-(torso.rotation.x*.22);
   hips.scale.setScalar(1);
+  if(finish>0){
+   hips.position.y=mix(hips.position.y,.59,finish);hips.rotation.y*=1-finish;hips.rotation.z*=1-finish;
+   torso.rotation.x=mix(torso.rotation.x,.10,finish);torso.rotation.y*=1-finish;head.rotation.x=mix(head.rotation.x,-.035,finish);
+  }else if(p.anticipation){hips.position.y-=p.anticipation*.09;torso.rotation.x+=p.anticipation*.20;}
   for(const limb of legs){
    const {leg,knee,shoe,shin,side}=limb;
    if(rolling){
@@ -217,6 +221,7 @@ function createRunner(parent){
     shoe.rotation.x+=planted?-.12*smooth((u/stance-.7)/.3):-.18*Math.sin((u-stance)/(1-stance)*Math.PI);
     limb.wasStance=planted;limb.previousU=u;
    }
+   if(finish>0){leg.rotation.x=mix(leg.rotation.x,-1.25,finish);leg.rotation.z=mix(leg.rotation.z,side*.06,finish);knee.rotation.x=mix(knee.rotation.x,1.25,finish);shoe.rotation.x=-leg.rotation.x-knee.rotation.x;}
    shin.material=material(boots?'#419ed8':'#'+(skin?.pants||'294d65'));
   }
   for(const {arm,elbow,wrist,hand,side} of arms){
@@ -226,6 +231,7 @@ function createRunner(parent){
    if(jump){arm.rotation.x=-.30-ascent*.65-flightTuck*.25;elbow.rotation.x=-.85-flightTuck*.3;}
    wrist.rotation.set(.07,side*.08,side*.10);hand.rotation.x=.12;
    if(crouch>.05){arm.rotation.x=mix(arm.rotation.x,sideways?-2.1:-.70,crouch);elbow.rotation.x=mix(elbow.rotation.x,sideways?-1.0:-1.8,crouch);}
+   if(finish>0){arm.rotation.x=mix(arm.rotation.x,-.35,finish);elbow.rotation.x=mix(elbow.rotation.x,-1.15,finish);}
   }
   if(skin&&skin.jacket!==palette){for(const {node,role} of clothing)node.material=material('#'+skin[role]);palette=skin.jacket;}
   for(const [kind,accessory] of outfits)accessory.visible=skin?.kind===kind;

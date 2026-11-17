@@ -16,6 +16,7 @@ globalThis.FileReader=class{
 };
 const context=vm.createContext({THREE,Math});
 vm.runInContext(await fs.readFile('characters.js','utf8'),context);
+vm.runInContext(await fs.readFile('presentation.js','utf8'),context);
 function clip(model,name,duration,pose){
  const nodes=[];model.root.traverseVisible(node=>{if((node.isGroup||node.isBone)&&node.name)nodes.push(node);});
  const times=[],samples=nodes.map(()=>({position:[],quaternion:[],scale:[]})),frames=Math.round(duration*60);
@@ -42,7 +43,8 @@ const animations=[
  clip(hero,'ShoulderRoll',.8,t=>({t,phase:0,slide:Math.min(1,t/.07,(.8-t)/.06),roll:t/.8})),
  clip(hero,'SideRollLeft',.8,t=>({t,phase:0,slide:Math.min(1,t/.07,(.8-t)/.06),roll:t/.8,rollDirection:-1})),
  clip(hero,'SideRollRight',.8,t=>({t,phase:0,slide:Math.min(1,t/.07,(.8-t)/.06),roll:t/.8,rollDirection:1})),
- clip(hero,'Ride',2,t=>({t,phase:0,riding:true}))
+ clip(hero,'Ride',2,t=>({t,phase:0,riding:true})),
+ clip(hero,'ToiletFinish',2,t=>{const p=context.finishMotion(t);return {t,phase:0,y:p.y,z:p.z,angle:p.angle,jump:p.airborne,velocity:p.velocity,finish:p.seat,anticipation:p.anticipation};})
 ];
 hero.update({idle:true});
 const heroBuffer=await exporter.parseAsync(hero.root,{binary:true,animations});
@@ -51,4 +53,4 @@ const cat=context.createMarsCat(new THREE.Group());
 const catClips=[clip(cat,'TailSway',2.6,t=>({t,preview:true}))];cat.update({preview:true});
 const catBuffer=await exporter.parseAsync(cat.root,{binary:true,animations:catClips});
 await fs.writeFile('assets/models/mars.glb',Buffer.from(catBuffer));
-console.log('Exported skinned Denis (9 clips) and Mars (1 clip) as editable GLB files.');
+console.log('Exported skinned Denis (10 clips) and Mars (1 clip) as editable GLB files.');

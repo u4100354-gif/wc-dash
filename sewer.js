@@ -21,7 +21,7 @@ function drawSewerFlow(stage,flow,front,t){
   ball(a+s*(.66+u*.48),top*.7+Math.sin(u*Math.PI)*.37,front-.12-u*.8,.09*(1-u),.17*(1-u),.09*(1-u),colors[1]);
  }
 }
-function drawSewerSection(stage,z,index){
+function drawSewerSection(stage,z,index,flying=false){
  const {box,round,put,sphere}=stage,ball=(...a)=>put(sphere,...a);
  box(0,-.15,z,8.9,.30,5.02,'526359');
  for(const side of [-1,1]){
@@ -35,7 +35,9 @@ function drawSewerSection(stage,z,index){
    box(side*4.15,2.35,z,.12,.5,.55,'b8a951');
   }
  }
- for(let n=0;n<16;n++){
+ // Cut away the foreground crown during flight and camera descent. Distant
+ // arches remain visible, so the tunnel still has an entrance and depth.
+ for(let n=0;n<16&&tunnelRoofVisible(z,flying);n++){
   const angle=(n+.5)/16*Math.PI;
   box(Math.cos(angle)*4.7,4.4+Math.sin(angle)*4.7,z,.98,.25,5.02,'687d70',0,0,angle+Math.PI/2);
   if(index%3===0)box(Math.cos(angle)*4.5,4.4+Math.sin(angle)*4.5,z-.1,.94,.22,.20,'99aa8b',0,0,angle+Math.PI/2);

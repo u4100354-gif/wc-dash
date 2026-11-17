@@ -12,14 +12,15 @@ function createWorld(canvas) {
    slide:idle?0:poseSlide,roll:idle?0:rollAge>=0?clamp(rollAge/.8,0,1):0,rollDirection:rollLateral,bank:idle?0:poseBank,landing:idle?0:landing,
    speed:speed(),distance,dirty:!idle&&flowHits>0,takeoffPhase:jumpTakeoffPhase,supportGap:height-ground,
    riding:!idle&&catTime>0&&!flight&&!closing,
-   finish:closing?ease((toiletTime-1.28)/.70):0,skin:currentSkin(),boots:bootsTime>0||bootJumpActive});
+   finish:closing?finishMotion(toiletTime).seat:0,anticipation:closing?finishMotion(toiletTime).anticipation:0,skin:currentSkin(),boots:bootsTime>0||bootJumpActive});
  }
  function wc(a,z){
   // Seat height and front edge match the seated hip and the knee clearance.
-  round(a,.07,z,.99,.126,1.35,'b4d5ce');round(a,.273,z+.14,.71,.35,.97,'cee2d9');
-  put(bowl,a,.315,z,1.64,.504,2.05,'f5f4e6');round(a,.581,z,.66,.021,.91,'69b8b0');
-  box(a,.868,z+.80,1.20,.602,.40,'dedfd1');box(a,1.19,z+.8,1.29,.077,.47,'fff8d9');box(a+.33,1.239,z+.78,.19,.035,.1,'69908c');
-  box(a,2.69,z+.94,1.62,.74,.16,'124b48');glyph('W',a-.30,2.69,z+.846,.104,'deffa0');glyph('C',a+.32,2.69,z+.846,.104,'deffa0')
+  round(a,.04,z,.52,.08,.70,'b4d5ce');round(a,.16,z+.10,.39,.25,.51,'cee2d9');
+  put(bowl,a,.16,z,.78,.30,1.05,'f5f4e6');
+  round(a,toiletSeatHeight-.13,z,.48,.018,.63,'69b8b0');
+  box(a,.70,z+.51,.68,.51,.24,'dedfd1');box(a,.97,z+.51,.73,.045,.29,'fff8d9');box(a+.19,1.00,z+.50,.12,.025,.07,'69908c');
+  box(a,2.35,z+.69,1.25,.60,.13,'124b48');glyph('W',a-.24,2.35,z+.61,.081,'deffa0');glyph('C',a+.26,2.35,z+.61,.081,'deffa0')
  }
  function token(a,z,t,y=.65){const b=y+Math.sin(t*3+z*.08)*.085;round(a,b-.15,z,.77,.13,.77,'fab844');
   for(const [i,r,dy] of [[0,.62,-.01],[-.025,.47,.14],[.035,.32,.27],[.075,.15,.38]])round(a+i,b+dy,z,r,.16,r,'a75c35');
@@ -166,9 +167,9 @@ function createWorld(canvas) {
   }
  }
  function world(d,menu){
-  const start=Math.floor((d-20)/5),end=Math.floor((d+110)/5);
+  const start=Math.floor((d-20)/5),end=Math.floor((d+110)/5),theme=routes[level].theme;
   for(let i=start;i<=end;i++){const z=i*5-d,zone=marathon()?biomeAt(i*5):Math.min(2,Math.max(0,Math.floor(i*5/(length/3))));
-   if(level===0&&!menu&&sewerAt(i*5)){drawSewerSection(stage,z,i);continue;}
+   if(!menu&&routeSewerAt(i*5)){drawSewerSection(stage,z,i,!!flight||cameraLift>3.5);continue;}
    const covered=menu?false:((i%48+48)%48>=35&&(i%48+48)%48<39);
    const ceramic=['7aada4','88b5a6','91b587'][zone],wall=['efe6c9','e7e9d9','ebe4c8'][zone];
    for(let l=-1;l<=1;l++){
@@ -188,6 +189,7 @@ function createWorld(canvas) {
    for(const s of [-1,1]){
     box(s*3.9,-.13,z,1.2,.25,4.99,'95aba4');if(s<0&&covered)box(s*4.55,3.25,z,.28,6.5,5,wall);
     else if(s===1&&covered)atrium(z,i,zone);
+    else if(theme==='harbor'&&s<0){box(-8.8,-.3,z,9,.5,5.01,'c1bca1');box(-13.2,.12,z,.3,.7,5.02,'d1b589');}
     else {box(s*17,-.32,z,25.5,.55,5.01,'b3cb91');if((i+(s>0?1:0))%3===0)tree(s*(7.3+.4*Math.cos(i)),z,.91+zone*.12,i);if(i%6===0){
      const rise=4+Math.abs(Math.sin(i*2.3))*4;
      box(s*16,rise/2,z,5,rise,8,['d2b296','d2a18c','c3baa0'][zone]);
@@ -245,13 +247,15 @@ function createWorld(canvas) {
   if(canvas.width!==Math.round(w*ratio)||canvas.height!==Math.round(h*ratio)){canvas.width=Math.round(w*ratio);canvas.height=Math.round(h*ratio)}
   const menu=state==='menu',mobile=w<680,t=menu?clock:elapsed,d=menu?0:distance;
   const closing=state==='finish'||state==='win',cinema=closing?ease(toiletTime/1.7):0;
-  const yaw=menu?.46:cinema*.70, pitch=menu?.10:.13+cameraLift*.015;
+  const view=chaseCamera({mobile,x,lift:cameraLift,cinema});
+  const yaw=menu?.46:view.yaw, pitch=menu?.10:view.pitch;
   let f=menu?Math.min(h*1.24,w*1.50):Math.min(h*.92,w*1.10);
-  const eye=[menu?(mobile?-3.0:-2.15):x*(mobile?.38:.16)-3.55*cinema,menu?(mobile?2.0:1.77):3.15+cameraLift*1.07-.89*cinema,menu?(mobile?(h<600?-8.2:-6.6):-4.20):-6.25-cameraLift*.30+2.15*cinema],offsetX=menu?(mobile?.22:.40):0,offsetY=menu?(mobile?(h<600?.64:.52):-.04):-.05;
+  const eye=menu?[mobile?(h<600?-3.6:-2.8):-2.15,mobile?2.0:1.77,mobile?(h<600?-8.2:-6.6):-4.20]:view.eye,offsetX=menu?(mobile?0:.40):view.offsetX,offsetY=menu?(mobile?(h<600?.64:.52):-.04):view.offsetY;
   shapes.forEach(sh=>sh.used=0);mars.root.visible=false;world(d,menu);decor.draw(d,menu);
-  stage.setSewer?.(level===0&&!menu?sewerBlendAt(d):0);
-  const heroX=menu?0:x,heroZ=closing?.16*ease(toiletTime/.80)+.65*ease((toiletTime-1.94)/.54):0;
-  person(heroX,menu?0:height,heroZ,menu?-2.32:closing?Math.PI*ease((toiletTime-.66)/.61):clamp((lane*2.2-x)*.15,-.25,.25),t,!grounded(),menu);
+  stage.setSewer?.(!menu?routeSewerBlendAt(d)*(flight?.15:1):0);
+  const finishPose=closing?finishMotion(toiletTime):null;
+  const heroX=menu?0:x,heroZ=finishPose?.z||0;
+  person(heroX,menu?0:height,heroZ,menu?-2.32:closing?finishPose.angle:clamp((lane*2.2-x)*.15,-.25,.25),t,closing?finishPose.airborne:!grounded(),menu);
   if(menu){denisCat(1.55,0,.25,t,true);wc(mobile?1.70:2.25,3.85);token(-1.3,1.8,t)}
   else{
    for(const f of flows){
@@ -267,7 +271,7 @@ function createWorld(canvas) {
    for(const train of trains){carriage(train,d);for(const pickup of train.roofTokens||[])if(!pickup.done&&train.z+train.entry+pickup.offset-d<90&&train.z+train.entry+pickup.offset-d>-16)token(train.a,train.z+train.entry+pickup.offset-d,t,roofHeight+.65);}
    if(!closing&&!flight&&catTime>0)denisCat(x,height,-.2,t);
    if(flight)jetTrail(t);
-   if(length-d<66)wc(0,length-d+1.65);
+   if(length-d<66)wc(0,length-d+toiletCenterZ);
    for(let idx=firstNearby;idx<items.length&&items[idx].z<d+90;idx++){const it=items[idx],z=it.z-d,a=it.a;
     if((it.done&&!isBarrier(it.type))||(it.type==='letter'&&!activeWord()))continue;
     if(it.type==='letter'){let ch=letterFor(it);if(!ch)continue;let b=it.y+1.28+.06*Math.sin(t*3+z*.07),turn=.30*Math.sin(t*1.6+it.z);
@@ -305,7 +309,7 @@ function createWorld(canvas) {
   }
   if(closing&&toiletTime>2.36&&toiletTime<3.70){
    for(let j=0;j<7;j++){const u=(toiletTime-2.36+j/7)%1,ph=j*2.4+u*3;
-    round(Math.cos(ph)*.69,1.06+.40*Math.sin(u*Math.PI),1.65+Math.sin(ph)*.72,.086,.12,.086,'9ce0d7')}
+    round(Math.cos(ph)*.45,.65+.30*Math.sin(u*Math.PI),toiletCenterZ+Math.sin(ph)*.48,.06,.09,.06,'9ce0d7')}
   }
   if(!menu)for(const e of flecks){
    const age=elapsed-e.at;if(age<0||age>.43)continue;

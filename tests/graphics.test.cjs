@@ -10,13 +10,55 @@ async function setup(){
   setPixelRatio(){} setSize(){} render(scene,camera){scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);}
  }
  const ctx=vm.createContext({THREE:{...three,WebGLRenderer:Renderer},devicePixelRatio:1,console,Math});
- for(const file of ['inspector.js','three-stage.js','characters.js','world.js'])if(fs.existsSync(file))vm.runInContext(fs.readFileSync(file,'utf8'),ctx);
+ for(const file of ['inspector.js','presentation.js','three-stage.js','characters.js','world.js'])if(fs.existsSync(file))vm.runInContext(fs.readFileSync(file,'utf8'),ctx);
  return {ctx,three};
 }
 test('existing game world uses the Three.js backend',async()=>{
  const {ctx}=await setup();
  const world=ctx.createWorld({clientWidth:390,clientHeight:844,getContext:()=>null});
  assert.equal(world.engine,'three.js');
+});
+
+test('portrait chase camera centres the corridor and keeps Denis visible in every lane and in flight',async()=>{
+ const {ctx,three}=await setup();const stage=ctx.createThreeStage({clientWidth:390,clientHeight:844});
+ for(const width of [320,390,430,600])for(const x of [-2.2,-1.1,0,1.1,2.2])for(const lift of [0,3,10.6]){
+  const view=ctx.chaseCamera({mobile:true,x,lift});
+  stage.draw({w:width,h:844,f:width*1.10,...view});
+  const centre=new three.Vector3(0,lift+1,0).project(stage.camera);
+  const player=new three.Vector3(x,lift+1,0).project(stage.camera);
+  assert.ok(Math.abs(centre.x)<.001,`portrait ${width}px lane ${x}: ${centre.x}`);
+  assert.ok(Math.abs(player.x)<.86,'Denis must stay inside the portrait viewport');
+ }
+});
+
+test('finish seats the pelvis on the smaller toilet with feet in front and above the floor',async()=>{
+ const {ctx,three}=await setup(),parent=new three.Group(),hero=ctx.createRunner(parent);
+ const pose=ctx.finishMotion(1.8);hero.update({finish:pose.seat,z:pose.z,angle:pose.angle});parent.updateMatrixWorld(true);
+ const hips=parent.getObjectByName('hips'),seat=ctx.finishMotion(2);
+ assert.ok(Math.abs(hips.getWorldPosition(new three.Vector3()).y-.59)<.01);
+ assert.equal(seat.z,vm.runInContext('toiletCenterZ',ctx));
+ for(const name of ['leftShoe','rightShoe']){
+  const foot=new three.Box3().setFromObject(parent.getObjectByName(name));
+  assert.ok(foot.min.y>-.03&&foot.min.y<.12,`seated foot floor clearance ${foot.min.y}`);
+  assert.ok(foot.max.z<seat.z,'feet face away from the tank');
+ }
+});
+
+test('complete scenes render all six routes, flight and finish at desktop and mobile sizes',async()=>{
+ const {ctx}=await setup();const nodes=new Map();
+ const node=()=>({clientWidth:390,clientHeight:844,width:390,height:844,dataset:{},style:{setProperty(){}},getContext:()=>({fillRect(){},strokeRect(){},fillText(){}}),
+  setAttribute(){},addEventListener(){},append(){},replaceChildren(){},focus(){},showModal(){},setPointerCapture(){}});
+ Object.assign(ctx,{crypto:require('node:crypto').webcrypto,performance:{now:()=>0},navigator:{maxTouchPoints:0},requestAnimationFrame(){},addEventListener(){},localStorage:{getItem:()=>null,setItem(){}},
+  soundscape:{sync(){},effect(){},init(){},getVolumes:()=>({music:.7,fx:.8})},
+  document:{getElementById(id){if(!nodes.has(id))nodes.set(id,node());return nodes.get(id)},querySelector:()=>node(),querySelectorAll:()=>[],createElement:node,addEventListener(){}}});
+ for(const file of ['showcase','routes','sewer','environment','trains','endless','shop','game'])vm.runInContext(fs.readFileSync(file+'.js','utf8'),ctx,{filename:file+'.js'});
+ for(const width of [390,1366])for(let index=0;index<6;index++){
+  nodes.get('screen').clientWidth=width;
+  vm.runInContext(`chooseRoute(${index});start();render3D();distance=150;beginFlight();height=10.6;cameraLift=10.6;render3D();flight=null;state='finish';toiletTime=1.8;height=0;render3D()`,ctx);
+  const stage=vm.runInContext('render3D.stage',ctx);
+  assert.ok(stage.camera.matrixWorld.elements.every(Number.isFinite));
+  for(const shape of stage.shapes)assert.ok(shape.used>0?shape.used<16384:true);
+ }
 });
 test('Three.js scene renders colored instances with lights and shadows',async()=>{
  const {ctx}=await setup();assert.equal(typeof ctx.createThreeStage,'function','Three.js stage is available');
