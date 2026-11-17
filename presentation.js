@@ -1,13 +1,14 @@
 // One finish timeline shared by physics, character posing and camera framing.
 const toiletSeatHeight=.46,toiletCenterZ=1.12;
-function finishMotion(time){
+function finishMotion(time,entryHeight=0){
  const smooth=n=>{n=Math.max(0,Math.min(1,n));return n*n*(3-2*n)};
  const u=Math.max(0,Math.min(1,(time-.55)/.78));
- const airborne=time>.55&&time<1.33;
- return {y:airborne?Math.sin(Math.PI*u)*.68:0,z:toiletCenterZ*smooth(u),
+ const hopping=time>.55&&time<1.33,settle=Math.max(0,Math.min(1,time/.55));
+ const airborne=hopping||(entryHeight>0&&time<.55);
+ return {y:entryHeight*(1-smooth(settle))+(hopping?Math.sin(Math.PI*u)*.68:0),z:toiletCenterZ*smooth(u),
   angle:Math.PI*smooth((time-.25)/.55),seat:smooth((time-.92)/.41),
   anticipation:time<.55?Math.sin(Math.PI*smooth(time/.55)):0,
-  airborne,velocity:airborne?Math.cos(Math.PI*u)*.68*Math.PI/.78:0};
+  airborne,velocity:hopping?Math.cos(Math.PI*u)*.68*Math.PI/.78:-entryHeight*6*settle*(1-settle)/.55};
 }
 function chaseCamera({mobile,x,lift=0,cinema=0}){
  // Keep the three-lane corridor centred in portrait. Partial horizontal follow

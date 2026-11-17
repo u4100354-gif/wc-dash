@@ -12,7 +12,7 @@ function createWorld(canvas) {
    slide:idle?0:poseSlide,roll:idle?0:rollAge>=0?clamp(rollAge/.8,0,1):0,rollDirection:rollLateral,bank:idle?0:poseBank,landing:idle?0:landing,
    speed:speed(),distance,dirty:!idle&&flowHits>0,takeoffPhase:jumpTakeoffPhase,supportGap:height-ground,
    riding:!idle&&catMount>.001&&!flight&&!closing,mount:catMount,motion,
-   finish:closing?finishMotion(toiletTime).seat:0,anticipation:closing?finishMotion(toiletTime).anticipation:0,skin:currentSkin(),boots:bootsTime>0||bootJumpActive});
+   finish:closing?finishMotion(toiletTime,finishEntryHeight).seat:0,anticipation:closing?finishMotion(toiletTime,finishEntryHeight).anticipation:0,skin:currentSkin(),boots:bootsTime>0||bootJumpActive});
  }
  function wc(a,z){
   // Seat height and front edge match the seated hip and the knee clearance.
@@ -245,8 +245,7 @@ function createWorld(canvas) {
   }
  }
  function render(wallDt=1/60){
-  const w=canvas.clientWidth,h=canvas.clientHeight,ratio=Math.min(devicePixelRatio||1,w<680?2:1.75);
-  if(canvas.width!==Math.round(w*ratio)||canvas.height!==Math.round(h*ratio)){canvas.width=Math.round(w*ratio);canvas.height=Math.round(h*ratio)}
+  const w=canvas.clientWidth,h=canvas.clientHeight;
   const menu=state==='menu',mobile=w<680,t=menu?clock:elapsed,d=menu?0:distance;
   const closing=state==='finish'||state==='win',cinema=closing?ease(toiletTime/1.7):0;
   const view=chaseCamera({mobile,x,lift:cameraLift,cinema});
@@ -255,7 +254,7 @@ function createWorld(canvas) {
   const eye=menu?[mobile?(h<600?-3.6:-2.8):-2.15,mobile?2.0:1.77,mobile?(h<600?-8.2:-6.6):-4.20]:view.eye,offsetX=menu?(mobile?0:.40):view.offsetX,offsetY=menu?(mobile?(h<600?.64:.52):-.04):view.offsetY;
   shapes.forEach(sh=>sh.used=0);mars.root.visible=false;world(d,menu);decor.draw(d,menu);
   stage.setSewer?.(!menu?routeSewerBlendAt(d)*(flight?.15:1):0);
-  const finishPose=closing?finishMotion(toiletTime):null;
+  const finishPose=closing?finishMotion(toiletTime,finishEntryHeight):null;
   const rideMotion=menu?null:sampleRideMotion({t,phase:runCycle,speed:speed(),jump:!grounded(),velocity,supportGap:height-ground,
    slide:poseSlide,landing,bank:poseBank,mount:catMount,departing:catTime<=0,reaction:catReaction,boots:bootsTime>0||bootJumpActive});
   const heroX=menu?0:x,heroZ=finishPose?.z||0;

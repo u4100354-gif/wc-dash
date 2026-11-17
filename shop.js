@@ -36,7 +36,17 @@ const goods=[
  {id:'boots',name:'Прыгучие ботинки',describe:n=>'Высокий прыжок на '+(7+n*2)+' с'}
 ];
 function saveProfile(){try{localStorage.setItem(shopKey,JSON.stringify(profile))}catch{}}
-let shopTab='gear';
+let shopTab='gear',previewSkin=profile.skin,skinStudio=null,studioUnavailable=false,previewBoots=false;
+function previewOutfit(id){
+ if(!skinCatalog[id])return;previewSkin=id;$('previewName').textContent=skinCatalog[id].name;skinStudio?.setSkin(skinCatalog[id]);
+ document.querySelectorAll('.skinCard').forEach(row=>row.dataset.preview=String(Number(row.dataset.skin)===id));
+}
+function ensureSkinStudio(){
+ if(!skinStudio&&!studioUnavailable&&typeof createWardrobePreview==='function'){
+  try{skinStudio=createWardrobePreview($('skinCanvas'))}catch(error){studioUnavailable=true;$('skinStudio').hidden=true;console.warn('Wardrobe preview unavailable',error)}
+ }
+ skinStudio?.setActive(true);
+}
 function showShop(tab=shopTab){
  shopTab=tab==='skins'?'skins':'gear';
  $('upgrades').hidden=shopTab!=='gear';$('wardrobe').hidden=shopTab!=='skins';
@@ -55,19 +65,20 @@ function showShop(tab=shopTab){
   buy.onclick=()=>{if(profile[g.id]!==n||profile.wallet<tiers[n])return;profile.wallet-=tiers[n];profile[g.id]++;saveProfile();showShop();refreshSummary()};
   row.append(title,desc,buy);list.append(row)
  }
- renderSkins();if(!$('store').open)$('store').showModal()
+ if(!$('store').open)$('store').showModal();if(shopTab==='skins')renderSkins();else skinStudio?.setActive(false)
 }
 
 function renderSkins(){
- const list=$('wardrobe');list.replaceChildren();
+ const list=$('skinCards');list.replaceChildren();ensureSkinStudio();
  const balance=document.createElement('p');balance.className='skinIntro';balance.textContent='Синие ключи: '+profile.keys+' · собирай на трассе, открывай образы.';list.append(balance);
  const grid=document.createElement('div');grid.className='skinGrid';list.append(grid);
  for(const skin of skinCatalog){
   const owned=profile.skins.includes(skin.id),selected=profile.skin===skin.id,row=document.createElement('section');
-  row.className='skinCard';row.dataset.skin=skin.id;row.dataset.selected=String(selected);
-  const preview=document.createElement('div');preview.className='skinPreview '+skin.kind;preview.setAttribute('aria-hidden','true');
-  preview.style.setProperty('--coat','#'+skin.jacket);preview.style.setProperty('--cap','#'+skin.hatTop);preview.style.setProperty('--accent','#'+skin.accent);
-  for(const cls of ['skinHead','skinHat','skinTorso','skinLegs']){const part=document.createElement('i');part.className=cls;preview.append(part)}
+  row.className='skinCard';row.dataset.skin=skin.id;row.dataset.selected=String(selected);row.dataset.preview=String(previewSkin===skin.id);
+  const preview=document.createElement('button');preview.className='skinTry';preview.setAttribute('aria-label','Примерить: '+skin.name);
+  preview.onclick=()=>{previewOutfit(skin.id);$('skinStudio').scrollIntoView?.({block:'nearest',behavior:'smooth'})};
+  if(skinStudio){const image=document.createElement('img');image.src=skinStudio.thumbnail(skin);image.alt='';image.width=128;image.height=128;preview.append(image)}
+  else {const icon=document.createElement('span');icon.textContent=['🙂','🧢','🚀','🥷','🚒','❄','🎸','👨‍🍳','⚡','🏴‍☠️','👑'][skin.id];preview.append(icon)}
   const title=document.createElement('strong');title.textContent=skin.name;
   const button=document.createElement('button');button.textContent=selected?'Надето':owned?'Надеть':'Открыть · '+skin.cost+' 🔑';
   button.disabled=selected||(!owned&&profile.keys<skin.cost);button.setAttribute('aria-label',skin.name+' · '+button.textContent);
@@ -76,8 +87,9 @@ function renderSkins(){
     if(profile.keys<skin.cost)return;
     profile.keys-=skin.cost;profile.skins.push(skin.id)
    }
-   profile.skin=skin.id;saveProfile();showShop('skins');status()
+   profile.skin=skin.id;previewSkin=skin.id;saveProfile();showShop('skins');status()
   };
   row.append(preview,title,button);grid.append(row)
  }
+ previewOutfit(previewSkin);skinStudio?.refresh();
 }

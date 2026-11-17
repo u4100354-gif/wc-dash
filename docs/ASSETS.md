@@ -1,11 +1,14 @@
-# WC Dash 6.6: assets and tools
+# WC Dash 6.7: assets and tools
 
 All character meshes, articulated animation logic, trains, station props and sign
 textures in this version were authored for this project. No paid asset packs or
 Subway Surfers assets are included.
 
 - Three.js **0.187.0**, MIT: `vendor/three/`. License is included beside the files.
-- Runtime models and poses: `characters.js`; railway environment: `environment.js`.
+- Runtime models and poses: `characters.js`; fitted costume details: `costumes.js`.
+- The wardrobe renders the same rig through `wardrobe-preview.js`; thumbnails
+  are made locally from that renderer. No remote costume images are required.
+- Railway environment: `environment.js`.
 - Editable exchange models: `assets/models/denis.glb` (21 clips) and
   `assets/models/mars.glb` (13 clips).
 - Both rigs include 12 matched clips: RideSlow, Ride, RideSprint, RideTurnLeft,

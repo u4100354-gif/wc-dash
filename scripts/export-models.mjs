@@ -16,10 +16,11 @@ globalThis.FileReader=class{
 };
 const context=vm.createContext({THREE,Math});
 vm.runInContext(await fs.readFile('ride-motion.js','utf8'),context);
+vm.runInContext(await fs.readFile('costumes.js','utf8'),context);
 vm.runInContext(await fs.readFile('characters.js','utf8'),context);
 vm.runInContext(await fs.readFile('presentation.js','utf8'),context);
 function clip(model,name,duration,pose){
- const nodes=[];model.root.traverseVisible(node=>{if((node.isGroup||node.isBone)&&node.name)nodes.push(node);});
+ const nodes=[];model.root.traverseVisible(node=>{if((node.isGroup||node.isBone||node.userData.animated)&&node.name)nodes.push(node);});
  const times=[],samples=nodes.map(()=>({position:[],quaternion:[],scale:[]})),frames=Math.round(duration*60);
  for(let frame=0;frame<=frames;frame++){
   const t=frame/frames*duration;times.push(t);model.update(pose(t));
@@ -59,7 +60,7 @@ const animations=[
  clip(hero,'Run',Math.PI*2/14.5,t=>({t,phase:t*14.5,speed:13})),
  clip(hero,'FastRun',Math.PI*2/17.5,t=>({t,phase:t*17.5,speed:17})),
  clip(hero,'Sprint',Math.PI*2/21,t=>({t,phase:t*21,speed:21})),
- clip(hero,'Idle',3,t=>({t,idle:true})),
+ clip(hero,'Idle',4.6,t=>({t,idle:true})),
  clip(hero,'Jump',1,t=>({t,jump:true,phase:0,takeoffPhase:0,speed:17,y:Math.max(0,8.25*t-8.5*t*t),supportGap:Math.max(0,8.25*t-8.5*t*t),velocity:8.25-17*t})),
  clip(hero,'ShoulderRoll',.8,t=>({t,phase:0,slide:Math.min(1,t/.07,(.8-t)/.06),roll:t/.8})),
  clip(hero,'SideRollLeft',.8,t=>({t,phase:0,slide:Math.min(1,t/.07,(.8-t)/.06),roll:t/.8,rollDirection:-1})),

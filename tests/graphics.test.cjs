@@ -6,17 +6,65 @@ const {pathToFileURL}=require('node:url');
 async function setup(){
  const three=await import(pathToFileURL(require('node:path').resolve('vendor/three/three.module.js')).href);
  class Renderer {
-  constructor(){this.shadowMap={};this.domElement={};}
-  setPixelRatio(){} setSize(){} render(scene,camera){scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);}
+  constructor(options={}){this.shadowMap={};this.domElement={};this.canvas=options.canvas;this.ratio=1;}
+  setPixelRatio(r){this.ratio=r;} setSize(w,h){if(this.canvas){this.canvas.width=Math.round(w*this.ratio);this.canvas.height=Math.round(h*this.ratio);}} render(scene,camera){scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);}
  }
  const ctx=vm.createContext({THREE:{...three,WebGLRenderer:Renderer},devicePixelRatio:1,console,Math});
- for(const file of ['inspector.js','presentation.js','ride-motion.js','three-stage.js','characters.js','world.js'])if(fs.existsSync(file))vm.runInContext(fs.readFileSync(file,'utf8'),ctx);
+ for(const file of ['inspector.js','presentation.js','ride-motion.js','three-stage.js','costumes.js','characters.js','wardrobe-preview.js','world.js'])if(fs.existsSync(file))vm.runInContext(fs.readFileSync(file,'utf8'),ctx);
  return {ctx,three};
 }
 test('existing game world uses the Three.js backend',async()=>{
  const {ctx}=await setup();
  const world=ctx.createWorld({clientWidth:390,clientHeight:844,getContext:()=>null});
  assert.equal(world.engine,'three.js');
+});
+
+test('costume selection removes old orange hoodie details and hides hair under closed headwear',async()=>{
+ const {ctx,three}=await setup(),hero=ctx.createRunner(new three.Group());
+ for(const kind of ['space','ninja','polar','chef','fire']){
+  hero.update({idle:true,skin:{kind,jacket:'e9e6d9',trim:'fff5df',accent:'df6939',pants:'becbd0',hat:'d9e3dd',hatTop:'f7f3dc'}});
+  const stale=[];hero.root.traverseVisible(n=>{if(n.isMesh&&['da5935','ca563b'].includes(n.material.color.getHexString()))stale.push(n)});
+  assert.equal(stale.length,0,`old orange garment leaked into ${kind}`);
+  const hair=hero.root.getObjectByName('hair');assert.ok(hair&&!hair.visible,`${kind} must fit without hair poking through`);
+ }
+});
+
+test('astronaut visor lets the new face remain visible through the helmet',async()=>{
+ const {ctx,three}=await setup(),hero=ctx.createRunner(new three.Group());
+ hero.update({skin:{kind:'space',jacket:'e9e6d9',trim:'fff5df',accent:'df6939',pants:'becbd0',hat:'d9e3dd',hatTop:'f7f3dc'}});
+ let glass=false;hero.root.traverseVisible(n=>{if(n.isMesh&&n.material.transparent&&n.material.opacity<.65)glass=true});
+ assert.ok(glass,'opaque helmet must not cover the whole face');
+});
+
+test('wardrobe studio renders the real costume in every preview mode and restores size after thumbnails',async()=>{
+ const {ctx}=await setup();vm.runInContext(fs.readFileSync('shop.js','utf8'),ctx);
+ const canvas={clientWidth:360,clientHeight:240,addEventListener(){},toDataURL:()=>"data:image/webp;base64,test"};
+ ctx.requestAnimationFrame=cb=>ctx.previewFrame=cb;
+ const view=ctx.createWardrobePreview(canvas),skins=vm.runInContext('skinCatalog',ctx);
+ view.setSkin(skins[2]);view.setActive(true);
+ for(const mode of ['idle','run','jump','roll','cat']){
+  view.setMode(mode);for(let i=0;i<30;i++)ctx.previewFrame(i*17);
+  const hero=view.scene.getObjectByName('Denis');assert.ok(hero.getObjectByName('outfit-space').visible);
+  assert.equal(view.scene.getObjectByName('Mars').visible,mode==='cat');
+  view.scene.updateMatrixWorld(true);assert.ok(hero.matrixWorld.elements.every(Number.isFinite));
+ }
+ view.setBoots(true);assert.ok(view.scene.getObjectByName('leftBootCuff').visible);
+ assert.ok(view.thumbnail(skins[3]).startsWith('data:image/'));view.refresh();
+ assert.equal(view.camera.aspect,1.5);assert.equal(canvas.width,360);view.setActive(false);
+});
+
+test('all owned costume designs follow the new rig through running, rolling and mounted ducking',async()=>{
+ const {ctx,three}=await setup();vm.runInContext(fs.readFileSync('shop.js','utf8'),ctx);
+ const skins=vm.runInContext('skinCatalog',ctx),hero=ctx.createRunner(new three.Group()),point=new three.Vector3();
+ for(const skin of skins)for(const pose of [{idle:true},{phase:2,speed:21},{jump:true,velocity:0,y:2},{slide:1,roll:.35},{slide:1,roll:.65},{riding:true,mount:1,slide:1,bank:1},{finish:1}]){
+  hero.update({...pose,skin});hero.root.updateMatrixWorld(true);const bounds=new three.Box3();
+  hero.root.traverseVisible(n=>{assert.ok(n.matrixWorld.elements.every(Number.isFinite));if(!n.isMesh)return;if(n.isSkinnedMesh)n.skeleton.update();
+   for(let i=0;i<n.geometry.attributes.position.count;i++){n.getVertexPosition(i,point);bounds.expandByPoint(point.applyMatrix4(n.matrixWorld))}
+  });
+  assert.ok(bounds.max.y<5&&bounds.min.y>-.18,`${skin.name}: invalid body bounds ${bounds.min.y}, ${bounds.max.y}`);
+  if(pose.slide)assert.ok(bounds.max.y<1.46,`${skin.name} must pass under the crossbar: ${bounds.max.y}`);
+  if(skin.kind!=='classic')assert.equal(hero.root.getObjectByName('outfit-'+skin.kind).visible,true);
+ }
 });
 
 test('boots colour only footwear while pelvis, seat and both trouser legs keep the selected skin',async()=>{
@@ -114,6 +162,7 @@ test('finish seats the pelvis on the smaller toilet with feet in front and above
 
 test('complete scenes render all six routes, flight and finish at desktop and mobile sizes',async()=>{
  const {ctx}=await setup();const nodes=new Map();
+ ctx.devicePixelRatio=3;
  const node=()=>({clientWidth:390,clientHeight:844,width:390,height:844,dataset:{},style:{setProperty(){}},getContext:()=>({fillRect(){},strokeRect(){},fillText(){}}),
   setAttribute(){},addEventListener(){},append(){},replaceChildren(){},focus(){},showModal(){},setPointerCapture(){}});
  Object.assign(ctx,{crypto:require('node:crypto').webcrypto,performance:{now:()=>0},navigator:{maxTouchPoints:0},requestAnimationFrame(){},addEventListener(){},localStorage:{getItem:()=>null,setItem(){}},
@@ -123,6 +172,7 @@ test('complete scenes render all six routes, flight and finish at desktop and mo
  for(const width of [390,1366])for(let index=0;index<6;index++){
   nodes.get('screen').clientWidth=width;
   vm.runInContext(`chooseRoute(${index});start();render3D();catTime=12;catMount=1;bootsTime=3;poseSlide=1;runCycle=2;rollAge=.4;render3D()`,ctx);
+  assert.equal(nodes.get('screen').width,Math.round(width*2.5),'drawing buffer must keep renderer pixel ratio on later frames');
   const mountedStage=vm.runInContext('render3D.stage',ctx);
   assert.equal(mountedStage.content.getObjectByName('Denis').userData.rideAction,'duck');assert.equal(mountedStage.content.getObjectByName('Mars').userData.rideAction,'duck');
   vm.runInContext(`poseSlide=0;distance=150;beginFlight();height=10.6;cameraLift=10.6;render3D();flight=null;state='finish';toiletTime=1.8;height=0;render3D()`,ctx);

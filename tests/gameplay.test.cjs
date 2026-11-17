@@ -5,7 +5,7 @@ const fs=require('node:fs');
 const {webcrypto}=require('node:crypto');
 function game(saved={}){
  const nodes=new Map();
- function node(){return {hidden:false,disabled:false,dataset:{},style:{setProperty(){}},textContent:'',innerHTML:'',addEventListener(){},setAttribute(){},append(){},prepend(){},replaceChildren(){},focus(){},showModal(){this.open=true},setPointerCapture(){}};}
+ function node(){return {hidden:false,disabled:false,children:[],dataset:{},style:{setProperty(){}},textContent:'',innerHTML:'',addEventListener(){},setAttribute(){},append(...items){this.children.push(...items)},prepend(...items){this.children.unshift(...items)},replaceChildren(...items){this.children=items},focus(){},showModal(){this.open=true},setPointerCapture(){}};}
  const storage=new Map(Object.entries(saved));
  const ctx=vm.createContext({console,crypto:webcrypto,Math,navigator:{maxTouchPoints:0},performance:{now:()=>0},
   localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},
@@ -19,6 +19,13 @@ test('sewer sections restore three rideable flow types in the playable route',()
  const {run}=game();run('start()');
  assert.ok(run('flows.length')>=6,'sewer encounters must exist');
  assert.ok(run('new Set(flows.map(f=>f.kind)).size')>=3);
+});
+
+test('trying on a locked costume costs nothing and purchasing it charges keys exactly once',()=>{
+ const {run}=game();run('profile.keys=10;showShop("skins");const spaceCard=$("skinCards").children[1].children[2];spaceCard.children[0].onclick()');
+ assert.equal(run('previewSkin'),2);assert.equal(run('profile.skin'),0);assert.equal(run('profile.keys'),10);
+ run('spaceCard.children[2].onclick()');assert.equal(run('profile.skin'),2);assert.equal(run('profile.keys'),5);
+ run('spaceCard.children[2].onclick()');assert.equal(run('profile.keys'),5);assert.equal(run('profile.skins.filter(id=>id===2).length'),1);
 });
 
 test('cat mounts smoothly, ducks under a crossbar without consuming its shield, and jump interrupts the duck',()=>{
@@ -40,6 +47,13 @@ test('finish actually jumps onto the toilet before settling into the seat',()=>{
  const {run}=game();run('start();state="finish";toiletTime=.85;tick(1/120)');
  assert.ok(run('height')>.35,'feet must leave the ground during the finish jump');
  run('toiletTime=1.8;tick(1/120)');assert.ok(run('height')<.01,'finish jump lands');
+});
+
+test('crossing the finish while airborne preserves height and settles smoothly before the toilet jump',()=>{
+ const {run}=game();run('start();items=[];trains=[];flows=[];distance=length-.02;height=1.5;velocity=-1;cameraLift=.7;tick(1/120)');
+ assert.equal(run('state'),'finish');assert.ok(run('height')>1.4,'finish must not teleport the runner to the floor');
+ const lift=run('cameraLift');run('for(let i=0;i<20;i++)tick(1/120)');
+ assert.ok(run('height')>0&&run('height')<1.4);assert.ok(run('cameraLift')<lift);
 });
 
 test('five finite levels and the separate marathon remain selectable',()=>{
