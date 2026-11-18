@@ -1,5 +1,7 @@
 // One finish timeline shared by physics, character posing and camera framing.
 const toiletSeatHeight=.46,toiletCenterZ=1.12;
+const forwardRollDuration=.8,sideRollDuration=.5;
+const rollDuration=direction=>direction?sideRollDuration:forwardRollDuration;
 function finishMotion(time,entryHeight=0){
  const smooth=n=>{n=Math.max(0,Math.min(1,n));return n*n*(3-2*n)};
  const u=Math.max(0,Math.min(1,(time-.55)/.78));

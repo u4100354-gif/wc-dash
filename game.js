@@ -263,7 +263,7 @@ function move(action){
  if(state!=='run')return;
  if(action==='left'||action==='right'){
   const next=clamp(lane+(action==='left'?-1:1),-1,1);
-  if(next!==lane&&slide>0&&grounded()&&!flight){rollLateral=Math.sign(next-lane);rollAge=0;slide=.8;}
+  if(next!==lane&&slide>0&&grounded()&&!flight){rollLateral=Math.sign(next-lane);rollAge=0;slide=catTime>0?forwardRollDuration:sideRollDuration;}
   lane=next;return;
  }
  if(flight)return;
@@ -279,7 +279,7 @@ function tick(dt){
  const mountTarget=catTime>0&&!flight&&state==='run'?1:0;
  catMount+=(mountTarget-catMount)*(1-Math.exp(-16*dt));if(Math.abs(mountTarget-catMount)<.001)catMount=mountTarget;
  catReaction*=Math.exp(-8*dt);
- if(rollAge>=0){rollAge+=dt;if(rollAge>.8)rollAge=-1;}
+ if(rollAge>=0){rollAge+=dt;if(rollAge>=rollDuration(rollLateral)){rollAge=-1;rollLateral=0};}
  const effort=clamp((speed()-13)/8,0,1);runCycle+=dt*(effort<.33?14.5:effort<.70?17.5:21);
  if(state==='finish'){toiletTime+=dt;x=finishFrom*(1-ease(toiletTime/.55));const pose=finishMotion(toiletTime,finishEntryHeight);height=pose.y;velocity=pose.velocity;cameraLift=finishEntryLift*(1-ease(toiletTime/.55));if(toiletTime>=5.34)end(true);return}
  if(marathon())extendDistricts();

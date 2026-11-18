@@ -9,7 +9,7 @@ function createWorld(canvas) {
  function person(a,b,z,angle,t,jump,idle,motion){
   const closing=state==='finish'||state==='win';
   runner.update({x:a,y:b,z,angle,t,phase:runCycle,idle,jump,velocity,
-   slide:idle?0:poseSlide,roll:idle?0:rollAge>=0?clamp(rollAge/.8,0,1):0,rollDirection:rollLateral,bank:idle?0:poseBank,landing:idle?0:landing,
+   slide:idle?0:poseSlide,roll:idle?0:rollAge>=0?clamp(rollAge/rollDuration(rollLateral),0,1):0,rollDirection:rollLateral,bank:idle?0:poseBank,landing:idle?0:landing,
    speed:speed(),distance,dirty:!idle&&flowHits>0,takeoffPhase:jumpTakeoffPhase,supportGap:height-ground,
    riding:!idle&&catMount>.001&&!flight&&!closing,mount:catMount,motion,
    finish:closing?finishMotion(toiletTime,finishEntryHeight).seat:0,anticipation:closing?finishMotion(toiletTime,finishEntryHeight).anticipation:0,skin:currentSkin(),boots:bootsTime>0||bootJumpActive});

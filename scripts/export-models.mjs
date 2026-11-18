@@ -56,6 +56,7 @@ const rideClips=[
  ['RideDismount',.45,t=>({...rideGait(17,17.5)(t),mount:Math.exp(-16*t),departing:true})],
  ['RideRecoil',.45,t=>({...rideGait(17,17.5)(t),reaction:Math.exp(-8*t)})]
 ];
+const sideRollDuration=vm.runInContext("sideRollDuration",context);
 const animations=[
  clip(hero,'Run',Math.PI*2/14.5,t=>({t,phase:t*14.5,speed:13})),
  clip(hero,'FastRun',Math.PI*2/17.5,t=>({t,phase:t*17.5,speed:17})),
@@ -63,8 +64,8 @@ const animations=[
  clip(hero,'Idle',4.6,t=>({t,idle:true})),
  clip(hero,'Jump',1,t=>({t,jump:true,phase:0,takeoffPhase:0,speed:17,y:Math.max(0,8.25*t-8.5*t*t),supportGap:Math.max(0,8.25*t-8.5*t*t),velocity:8.25-17*t})),
  clip(hero,'ShoulderRoll',.8,t=>({t,phase:0,slide:Math.min(1,t/.07,(.8-t)/.06),roll:t/.8})),
- clip(hero,'SideRollLeft',.8,t=>({t,phase:0,slide:Math.min(1,t/.07,(.8-t)/.06),roll:t/.8,rollDirection:-1})),
- clip(hero,'SideRollRight',.8,t=>({t,phase:0,slide:Math.min(1,t/.07,(.8-t)/.06),roll:t/.8,rollDirection:1})),
+ clip(hero,'SideRollLeft',sideRollDuration,t=>({t,phase:0,slide:Math.min(1,t/.07,(sideRollDuration-t)/.06),roll:t/sideRollDuration,rollDirection:-1})),
+ clip(hero,'SideRollRight',sideRollDuration,t=>({t,phase:0,slide:Math.min(1,t/.07,(sideRollDuration-t)/.06),roll:t/sideRollDuration,rollDirection:1})),
  ...rideClips.map(([name,duration,pose])=>clip(hero,name,duration,t=>({...pose(t),riding:true}))),
  clip(hero,'ToiletFinish',2,t=>{const p=context.finishMotion(t);return {t,phase:0,y:p.y,z:p.z,angle:p.angle,jump:p.airborne,velocity:p.velocity,finish:p.seat,anticipation:p.anticipation};})
 ];
