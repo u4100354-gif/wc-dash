@@ -30,13 +30,13 @@ function createThreeStage(canvas) {
  }));scene.add(sky);
  const orb=new T.Mesh(new T.SphereGeometry(5,24,16),new T.MeshBasicMaterial({color:'#fff1bd',fog:false}));orb.position.set(-55,65,-120);scene.add(orb);
  const cloudMat=new T.MeshStandardMaterial({color:'#ffffff',roughness:1});
+ const clouds=new T.InstancedMesh(new T.SphereGeometry(1,12,8),cloudMat,48),puff=new T.Object3D();
  for(let i=0;i<12;i++){
-  const cloud=new T.Group();cloud.position.set(Math.sin(i*13)*55,23+(i%4)*5,-35-i*10);
   for(let j=0;j<4;j++){
-   const puff=new T.Mesh(new T.SphereGeometry(1,12,8),cloudMat);
-   puff.position.set(j*3,Math.sin(j*3+i),0);puff.scale.set(4,1.4+j%2,2.3);cloud.add(puff);
-  }scene.add(cloud);
- }
+   puff.position.set(Math.sin(i*13)*55+j*3,23+(i%4)*5+Math.sin(j*3+i),-35-i*10);
+   puff.scale.set(4,1.4+j%2,2.3);puff.updateMatrix();clouds.setMatrixAt(i*4+j,puff.matrix);
+  }
+ }scene.add(clouds);
  const shapes=[],dummy=new T.Object3D(),color=new T.Color();
  function shape(geometry){
   const mesh=new T.InstancedMesh(geometry,new T.MeshStandardMaterial({color:0xffffff,roughness:.65,metalness:.06}),16384);
@@ -44,7 +44,8 @@ function createThreeStage(canvas) {
   mesh.instanceMatrix.setUsage(T.DynamicDrawUsage);content.add(mesh);
   const result={mesh,used:0};shapes.push(result);return result;
  }
- const cube=shape(typeof RoundedBoxGeometry==='function'?new RoundedBoxGeometry(1,1,1,2,.055):new T.BoxGeometry(1,1,1));
+ const cube=shape(typeof RoundedBoxGeometry==='function'?new RoundedBoxGeometry(1,1,1,1,.045):new T.BoxGeometry(1,1,1));
+ const sceneryBox=shape(new T.BoxGeometry(1,1,1));
  const puck=shape(new T.CylinderGeometry(.5,.5,1,24));
  const sphere=shape(new T.SphereGeometry(.5,24,16));
  const fluid=shape(new T.SphereGeometry(.5,32,20));fluid.mesh.material.roughness=.23;fluid.mesh.material.metalness=.10;
@@ -55,7 +56,7 @@ function createThreeStage(canvas) {
   dummy.position.set(a,b,z);dummy.scale.set(sx,sy,sz);dummy.rotation.set(rx,ry,roll,'YXZ');dummy.updateMatrix();
   sh.mesh.setMatrixAt(sh.used,dummy.matrix);sh.mesh.setColorAt(sh.used,color.set('#'+col));sh.used++;
  }
- const box=(...args)=>put(cube,...args),round=(...args)=>put(puck,...args);
+ const box=(a,b,z,sx,sy,sz,...rest)=>put(Math.abs(a)>9||Math.min(sx,sy,sz)<.09?sceneryBox:cube,a,b,z,sx,sy,sz,...rest),round=(...args)=>put(puck,...args);
  let lastW=0,lastH=0,lastRatio=0;
  function draw({w,h,f,eye,yaw,pitch,offsetX,offsetY,wallDt=1/60}){
   const ratio=Math.min(typeof devicePixelRatio==='number'?devicePixelRatio:1,2.5);
@@ -67,7 +68,12 @@ function createThreeStage(canvas) {
    camera.position.set(eye[0],eye[1],-eye[2]);
    camera.lookAt(eye[0]+Math.sin(yaw)*Math.cos(pitch),eye[1]-Math.sin(pitch),-eye[2]-Math.cos(yaw)*Math.cos(pitch));
   }else inspection.update(wallDt);
-  for(const sh of shapes){sh.mesh.count=sh.used;sh.mesh.instanceMatrix.needsUpdate=true;if(sh.mesh.instanceColor)sh.mesh.instanceColor.needsUpdate=true;}
+  for(const sh of shapes){
+   sh.mesh.count=sh.used;if(!sh.used)continue;
+   for(const attribute of [sh.mesh.instanceMatrix,sh.mesh.instanceColor]){
+    attribute.clearUpdateRanges();attribute.addUpdateRange(0,sh.used*attribute.itemSize);attribute.needsUpdate=true;
+   }
+  }
   renderer.render(scene,camera);
  }
  return {scene,content,camera,renderer,inspection,shapes,cube,puck,sphere,fluid,bowl,put,box,round,setSewer,draw};

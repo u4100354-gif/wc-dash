@@ -1,4 +1,4 @@
-# WC Dash 6.7: assets and tools
+# WC Dash 6.8: assets and tools
 
 All character meshes, articulated animation logic, trains, station props and sign
 textures in this version were authored for this project. No paid asset packs or
@@ -39,6 +39,20 @@ Subway Surfers assets are included.
 ## Rebuilding exchange models
 
 From the project root:
+
+```sh
+npm install --prefix ../wc-dash-art-tools three@0.187.0 gltf-validator
+node scripts/export-models.mjs ../wc-dash-art-tools
+blender --background --factory-startup --python-exit-code 1 \
+  --python scripts/blender-source.py -- "$PWD" "$PWD/../Denis-and-Mars.blend"
+```
+
+On macOS, Blender 5.3 can also be run at
+`/Applications/Blender.app/Contents/MacOS/Blender`. The Blender scene opens
+with the two characters in separate collections and imports the animation
+tracks at 60 fps. It is an editable copy of the exchange models.
+
+On Windows, an existing portable installation can be used:
 
 ```powershell
 node scripts/export-models.mjs D:\WC-Dash\tools

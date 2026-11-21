@@ -151,17 +151,23 @@ function createRunner(parent){
   const flightTuck=jump?smooth(1-Math.min(1,Math.abs(velocity)/jumpMax)):0;
   const readyToLand=jump&&velocity<0?smooth(1-Math.min(1,(p.supportGap??1)/.8)):0;
   const lead=Math.sin(p.takeoffPhase??phase)>=0?-1:1;
+  const onFoot=(1-mounted)*(1-crouch)*(1-finish),drive=smooth(effort);
+  const contact=!jump&&!idle?Math.max(0,Math.min(1,landing)):0;
+  const compression=4*contact*(1-contact)*onFoot;
+  const airBlend=(jump?1:smooth(contact))*onFoot;
+  const takeoffSwing=Math.cos((p.takeoffPhase??phase)+.48);
+  const swing=mix(Math.cos(phase+.48),takeoffSwing,airBlend);
   const sideways=rolling&&!!p.rollDirection,turn=rolling?Math.PI*2*smooth((progress-.13)/.68):0;
   root.position.set(x,y,z-.20*mounted);root.rotation.y=p.angle||0;root.rotation.z=mix(-bank*.10,ride.roll,mounted);
   somersault.position.set(tuck*.055,tuck*.50,0);
   // Forward rotation follows travel. Axial side rotation is reserved for a lane change.
   somersault.rotation.set(sideways?tuck*Math.PI/2:turn,sideways?-Math.sign(p.rollDirection)*turn:0,sideways?Math.sin(progress*Math.PI)*.12:0,'XYZ');
   const bob=idle?Math.sin(t*2)*.009:jump?0:Math.sin(phase*2)*.017;
-  const normalHip=idle?.80:.72-stage*.025+bob-landing*.065;
+  const normalHip=idle?.80:.72-drive*.05+bob*(1-airBlend)-compression*.095;
   hips.position.set(0,mix(normalHip-crouch*.30,0,tuck),sideways?0:-.46*tuck);
-  hips.rotation.y=idle?0:Math.sin(phase)*.045*(1-crouch);hips.rotation.z=idle?0:Math.sin(phase)*.016*(1-crouch);
-  torso.rotation.x=mix(crouch*1.30+(idle?0:jump?.10+flightTuck*.08:.18+stage*.035),sideways?.12:1.38,tuck);
-  torso.rotation.y=idle?0:-Math.sin(phase)*.075*(1-crouch);torso.rotation.z=-bank*.055*(1-crouch);
+  hips.rotation.y=idle?0:swing*(.035+drive*.028)*(1-crouch);hips.rotation.z=idle?0:Math.sin(phase)*.016*(1-crouch)*(1-airBlend);
+  torso.rotation.x=mix(crouch*1.30+(idle?0:mix(.11+drive*.14,.11+flightTuck*.09+readyToLand*.05,airBlend))+compression*.17,sideways?.12:1.38,tuck);
+  torso.rotation.y=idle?0:-swing*(.065+drive*.075)*(1-crouch);torso.rotation.z=-bank*.055*(1-crouch);
   head.rotation.y=idle?Math.sin(t*.65)*.18:-bank*.11;
   head.rotation.x=rolling?.18:jump?-.12:-(torso.rotation.x*.22);
   hips.scale.setScalar(1);
@@ -187,6 +193,7 @@ function createRunner(parent){
     leg.rotation.set(mix(launch,-.70-flightTuck*.35+(leading?-.12:.12),collect)*(1-readyToLand*.65),0,side*.035);
     knee.rotation.x=mix(.55+(leading?.25:0),1.15+flightTuck*.65,collect)*(1-readyToLand*.70);
     shoe.rotation.x=-leg.rotation.x-knee.rotation.x;
+    limb.wasStance=false;
    }else if(idle){solveLeg(limb,-.695,side*.025);limb.wasStance=false;
    }else{
     const u=((phase/(Math.PI*2)+(side<0?0:.5))%1+1)%1;
@@ -201,7 +208,7 @@ function createRunner(parent){
      footY=.105;
     }else{
      const swing=(u-stance)/(1-stance),arc=Math.sin(swing*Math.PI);
-     footZ=mix(-stride,stride,smooth(swing));footY=.105+Math.pow(Math.max(0,arc),1.2)*(.30+stage*.055);
+     footZ=mix(-stride,stride,smooth(swing));footY=.105+Math.pow(Math.max(0,arc),1.2)*(.16+drive*.25);
     }
     const cross=side===-Math.sign(bank)?.38:.16;
     const lateral=bank*cross*(planted?.12:Math.sin((u-stance)/(1-stance)*Math.PI));
@@ -220,10 +227,15 @@ function createRunner(parent){
    limb.sole.material=material(boots?'#b8ebf5':'#fff5db');limb.cuff.visible=boots;
   }
   for(const {arm,elbow,wrist,hand,side} of arms){
-   const wave=Math.sin(phase+(side<0?0:Math.PI));
-   arm.rotation.set(idle?.04:-wave*(.64+stage*.10)-(jump?.5:0),0,side*.085-bank*.04);
-   elbow.rotation.x=idle?-.15:-1.05-.24*Math.cos(phase+(side<0?0:Math.PI));
-   if(jump){arm.rotation.x=-.30-ascent*.65-flightTuck*.25;elbow.rotation.x=-.85-flightTuck*.3;}
+   const counterSwing=side<0?swing:-swing,leading=side===lead;
+   arm.rotation.set(idle?.04:counterSwing*(.38+drive*.50),0,side*.085-bank*.04);
+   elbow.rotation.x=idle?-.15:-.42-drive*.64+counterSwing*(.12+drive*.18);
+   if(airBlend>0){
+    const brace=jump?readyToLand:1;
+    arm.rotation.x=mix(arm.rotation.x,-.46-ascent*.38+(leading?.35:-.35)*(1-brace*.6)+brace*.22,airBlend);
+    arm.rotation.z+=side*(.10+flightTuck*.18+brace*.16)*airBlend;
+    elbow.rotation.x=mix(elbow.rotation.x,-.86-flightTuck*.26+brace*.27,airBlend);
+   }
    wrist.rotation.set(.07,side*.08,side*.10);hand.rotation.x=.12;
    if(crouch>.05){arm.rotation.x=mix(arm.rotation.x,sideways?-2.1:-.70,crouch);elbow.rotation.x=mix(elbow.rotation.x,sideways?-1.0:-1.8,crouch);}
    if(mounted>0){

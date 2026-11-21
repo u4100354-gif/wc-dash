@@ -361,8 +361,8 @@ function tick(dt){
    if(!bootPull&&Math.abs(height-it.y)>1.5)continue;
    if(it.type==='wings'){if(flight)continue;beginFlight()}
    else{
-    if(it.type==='boots'){bootsTime=7+2*profile.boots;notice('Высокий прыжок · '+bootsTime+' с')}
-    else if(it.type==='magnet'){magnet=6+2*profile.magnet;notice('Магнит · '+magnet+' с')}
+    if(it.type==='boots')bootsTime=7+2*profile.boots;
+    else if(it.type==='magnet')magnet=6+2*profile.magnet;
 
     soundscape.effect('power')
    }

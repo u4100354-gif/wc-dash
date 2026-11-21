@@ -2,15 +2,31 @@
 function createDepotDecor(stage){
  const {box,round,put,sphere}=stage;
  const ball=(...a)=>put(sphere,...a);
- const signs=[];
+ const signs=[],graphics=new Map();
+ const liveries={
+  depot:{ink:'204f59',accent:'e69255',light:'fae3b0',badge:'01',motif:['0111110','1100011','1100011','1111111','1011101','0111110','0100010']},
+  sewer:{ink:'34554e',accent:'76aa8c',light:'e2e4ae',badge:'02',motif:['0011100','0001000','0000000','0111110','0101010','1101011','1100011']},
+  harbor:{ink:'27475e',accent:'669eab',light:'f7d9a1',badge:'03',motif:['0001000','0011100','0010100','0001000','1001001','1101011','0111110']},
+  garden:{ink:'345b51',accent:'91b77f',light:'f7e7bd',badge:'04',motif:['0000111','0011111','0111101','0111011','0110110','0011000','0100000']},
+  terminal:{ink:'433f58',accent:'b9897e',light:'f7dfae',badge:'05',motif:['0011100','0101010','1001001','1001101','1000001','0100010','0011100']},
+  marathon:{ink:'294c65',accent:'75a5ae',light:'f5dfb4',badge:'∞',motif:['0100010','1101011','0101010','0000000','0011100','0111110','0110110']}
+ };
+ function inkPanel(key,width,height,paint){
+  if(graphics.has(key))return graphics.get(key);
+  const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
+  paint(canvas.getContext('2d'));
+  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=4;
+  const material=new THREE.MeshStandardMaterial({map:texture,roughness:.8});graphics.set(key,material);return material;
+ }
+ const signShape=new THREE.PlaneGeometry(4.55,1.04);
  function label(text,color){
-  const canvas=document.createElement('canvas');canvas.width=768;canvas.height=192;
-  const ctx=canvas.getContext('2d');ctx.fillStyle=color;ctx.fillRect(0,0,768,192);
-  ctx.strokeStyle='#ffffff88';ctx.lineWidth=5;ctx.strokeRect(12,12,744,168);
-  ctx.fillStyle='#fff8dd';ctx.font='bold 74px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,384,101);
-  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=8;
-  const mesh=new THREE.Mesh(new THREE.PlaneGeometry(3.8,.95),new THREE.MeshStandardMaterial({map:texture,roughness:.7,side:THREE.DoubleSide}));
-  mesh.rotation.y=Math.PI;stage.content.add(mesh);return mesh;
+  const material=inkPanel(text+color,704,160,ctx=>{
+   ctx.fillStyle='#213f4a';ctx.fillRect(0,0,704,160);ctx.fillStyle=color;ctx.fillRect(0,0,22,160);
+   ctx.textBaseline='middle';ctx.textAlign='left';ctx.fillStyle='#f0ca8e';ctx.font='bold 18px Arial';ctx.fillText('WC DASH   /   ПУТЕВОЙ УКАЗАТЕЛЬ',48,33);
+   ctx.fillStyle='#fff2cf';ctx.font='bold 49px Arial';ctx.fillText(text,46,96,623);
+   ctx.fillStyle='#8ea59d';ctx.fillRect(48,138,607,2);
+  });
+  const mesh=new THREE.Mesh(signShape,material);mesh.scale.z=-1;stage.content.add(mesh);return mesh;
  }
  for(const [z,text,color] of [[8,'СОЛНЕЧНОЕ ДЕПО','#187e8d'],[174,'ЭКСПРЕСС  •  02','#df6248'],[354,'МАРС  •  ПЛАТФОРМА 3','#237e7a'],[525,'ГРУЗОВАЯ СТАНЦИЯ','#bd7d30'],[701,'WC  •  ВЫХОД →','#26775f']])signs.push({z,mesh:label(text,color)});
  const destinationSigns=levelCatalog.map((route,index)=>index===0?signs:[
@@ -19,6 +35,43 @@ function createDepotDecor(stage){
   ...(Number.isFinite(route.meters)?[{z:route.meters-19,mesh:label('WC  •  ВЫХОД →','#26775f')}]:[])
  ]);
  const allSigns=destinationSigns.flat();
+ const posterShape=new THREE.PlaneGeometry(1.12,1.72),posterPose=new THREE.Object3D();
+ const posters=Object.fromEntries(Object.entries(liveries).map(([theme,line])=>{
+  const material=inkPanel(theme,192,288,ctx=>{
+   ctx.fillStyle='#'+line.light;ctx.fillRect(0,0,192,288);ctx.fillStyle='#'+line.ink;ctx.fillRect(8,8,176,272);
+   ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillStyle='#'+line.light;ctx.font='bold 16px Arial';ctx.fillText('ЛИНИЯ',21,29);
+   ctx.textAlign='right';ctx.font='bold 24px Arial';ctx.fillText(line.badge,170,30);
+   ctx.fillStyle='#'+line.accent;ctx.fillRect(19,52,154,142);ctx.fillStyle='#'+line.ink;
+   line.motif.forEach((row,y)=>{for(let x=0;x<row.length;x++)if(row[x]==='1')ctx.fillRect(40+x*16,67+y*16,16,16)});
+   ctx.fillStyle='#'+line.light;ctx.fillRect(28,230,136,4);
+   for(const stop of [28,68,108,154]){ctx.fillRect(stop,226,10,12);ctx.fillRect(stop,249,10,3)}
+  });
+  const mesh=new THREE.InstancedMesh(posterShape,material,8);mesh.name='PlatformMap-'+theme;mesh.count=0;mesh.visible=false;mesh.frustumCulled=false;
+  mesh.scale.z=-1;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);stage.content.add(mesh);return [theme,mesh];
+ }));
+ function rooftop(theme,line,x,y,z){
+  if(theme==='garden'){
+   for(const side of [-1,1]){
+    box(x+side*.76,y+.70,z,1.66,.17,5.6,'a8cbc0',0,0,-side*.43);
+    for(const rib of [-2,0,2])box(x+side*.76,y+.81,z+rib,1.69,.09,.12,'fff1cb',0,0,-side*.43);
+   }
+  }else if(theme==='harbor'||theme==='sewer'){
+   for(const offset of [-1.3,1.3]){
+    const height=offset>0?2.65:1.9;
+    round(x,y+height*.5,z+offset,.78,height,.78,line.ink);
+    round(x,y+height-.42,z+offset,.8,.34,.8,line.accent);
+    round(x,y+height+.05,z+offset,.97,.15,.97,line.light);
+   }
+  }else if(theme==='terminal'){
+   for(let tier=0;tier<3;tier++)box(x,y+.19+tier*.35,z,3.7-tier*.72,.36,5-tier*.9,tier===1?line.accent:line.light);
+   round(x,y+1.57,z,.13,1.2,.13,line.ink);ball(x,y+2.19,z,.38,.42,.38,line.accent);
+  }else{
+   for(const side of [-1,1])for(const end of [-1,1])box(x+side*.75,y+.53,z+end*.75,.14,1.06,.14,line.ink);
+   round(x,y+1.64,z,2.35,1.45,2.35,line.accent);
+   for(const band of [1.15,2.12])round(x,y+band,z,2.39,.13,2.39,line.ink);
+   ball(x,y+2.35,z,2.45,.52,2.45,line.light);
+  }
+ }
  function landscape(d,theme,t){
   // Three depth layers: readable track furniture, a lived-in neighbourhood,
   // then a continuous skyline. All of it stays outside the playable lanes.
@@ -91,6 +144,9 @@ function createDepotDecor(stage){
  }
  function draw(d,menu){
   const visibleSigns=destinationSigns[level],theme=levelCatalog[level].theme;
+  const line=liveries[theme],poster=posters[theme];
+  for(const board of Object.values(posters))board.visible=false;
+  poster.count=0;
   landscape(d,theme,menu?clock:elapsed);
   for(const sign of allSigns){sign.mesh.visible=visibleSigns.includes(sign)&&sign.z-d>-18&&sign.z-d<110;if(sign.mesh.visible)sign.mesh.position.set(0,9.8,sign.z-d);}
   const from=Math.floor((d-20)/24),to=Math.ceil((d+110)/24);
@@ -102,17 +158,24 @@ function createDepotDecor(stage){
     // Chunky, colorful street façades beyond the safety fence.
     const height=4.5+((i*i+3)%4)*.9,paint=(theme==='sewer'?['a7ab91','a6b8a4','8dafa8','b1b59d']:theme==='harbor'?['bba879','c8ad8c','78a3a3','a3b3aa']:['e7b36f','ea9977','78b7ac','91b4d1'])[(i%4+4)%4];
     box(side*10.5,height/2,z,4,height,13,paint);box(side*10.5,height+.13,z,4.3,.28,13.3,'fff1d1');
-    for(let floor=1;floor<height-.5;floor+=1.5)for(let w=-2;w<=2;w++){
-     box(side*8.46,floor,z+w*2,.12,.93,1.25,'f8ebd0');
-     box(side*8.38,floor+.025,z+w*2,.06,.72,1.00,'367b92');
-     box(side*8.33,floor-.04,z+w*2,.035,.045,1.02,'dfefdb');
+    if((i+side)%3===0)rooftop(theme,line,side*10.4,height+.27,z-2.2);
+    for(let floor=1;floor<height-.5;floor+=1.5){
+     box(side*8.45,floor-.45,z,.17,.11,10.25,'f8ebd0');
+     for(let bay=-2;bay<=2;bay++)box(side*8.46,floor+.025,z+bay*2,.11,.82,1.32,'487784');
     }
     // Platforms, support columns and alternating striped awnings.
     if((i%5+5)%5<3){
      box(a,.16,z,3.1,.35,16,'d8d1bc');box(side*4.72,.36,z,.20,.05,15.9,'ffd062');
      for(const end of [-1,1]){box(side*7.2,2.15,z+end*6,.18,4.3,.18,'277e88');box(side*6.1,4.24,z+end*6,2.5,.17,.22,'277e88');}
-     for(let stripe=-6;stripe<=6;stripe++)box(a,4.37,z+stripe*1.1,3.7,.15,1.1,stripe%2?'e77b4f':'fff1cf',0,0,-side*.045);
-     box(side*4.4,4.18,z,.08,.30,14.4,'f5d9a4');
+     box(a,4.37,z,3.7,.18,14.4,line.light,0,0,-side*.045);
+     for(let rib=-2;rib<=2;rib++)box(a,4.47,z+rib*3.1,3.7,.065,.37,line.accent,0,0,-side*.045);
+     box(side*4.4,4.31,z,.12,.30,14.4,line.ink);
+     if(side===(i%2===0?-1:1)){
+      const boardX=side*5.65,boardZ=z-4.65;
+      box(boardX,.95,boardZ,.22,1.2,.23,line.ink);box(boardX,2.18,boardZ,1.21,1.84,.18,line.ink);
+      box(boardX,3.14,boardZ,1.28,.12,.27,line.accent);
+      posterPose.position.set(boardX,2.18,-boardZ+.10);posterPose.updateMatrix();poster.setMatrixAt(poster.count++,posterPose.matrix);
+     }
     }
     if(i%2===0){
      // Signal lamps and trackside equipment establish a railway silhouette.
@@ -127,6 +190,7 @@ function createDepotDecor(stage){
     }
    }
   }
+  poster.visible=poster.count>0;poster.instanceMatrix.needsUpdate=true;
   // Gantries are safely above the highest flight pose.
   for(const sign of visibleSigns){const z=sign.z-d;if(z<-18||z>110)continue;
    for(const side of [-1,1]){box(side*3.85,5.3,z,.17,10.6,.2,'2a7d87');box(side*3.85,.25,z,.5,.5,.55,'e2c99c');}
